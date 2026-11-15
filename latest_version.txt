@@ -1,0 +1,3 @@
+latest_version=1.0.0.001
+update_url_1=
+update_url_2=

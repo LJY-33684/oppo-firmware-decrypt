@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# vendored brotli Windows extension modules (required runtime files, not build artifacts)
+!**/_vendor_brotli/**/*.pyd
+
+# 运行时产物（解密输出 / 临时目录 / 日志）
+out/
+tmp/
+.oppo_decrypt_tmp/
+.oppo_firmware_decrypt.lock
+*_decrypted/
+*.log
+
+# 打包产物
+dist/
+build/
+dist/*.zip
