@@ -7,7 +7,7 @@
 - 仓库：https://github.com/LJY-33684/oppo-firmware-decrypt
 - 支持格式：**OFP（MTK）/ OZIP（Realme / OPPO）/ OPS（OnePlus）**
 - 平台：Windows x64（主），Linux 可运行（需系统自备 openssl / brotli）
-- Python：3.10+（已在 3.13 与 3.15 上通过自检）
+- Python：3.10+（已在 3.15 上完成 15/15 自检；3.13 可运行核心与 CLI，GUI 需完整 Tcl/Tk 数据）
 - 许可：GPL-3.0（解密算法源自 B. Kerler 的 MIT 组件，见 `docs/THIRD_PARTY_NOTICES.md`）
 
 ## 快速开始

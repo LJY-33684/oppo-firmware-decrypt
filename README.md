@@ -146,7 +146,7 @@ oppo-firmware-decrypt/
 
 - **Windows x64**：主支持平台，Python 3.10+，需带 Tcl/Tk（官方 Python 默认包含）
 - **Linux**：可运行 CLI；需系统自备 `openssl` 与 `brotli`（或 `pip install brotli`）
-- 已在 Python 3.13 与 3.15 上通过自检
+- 已在 Python 3.15 上完成 15/15 自检；Python 3.13 可运行核心与 CLI，GUI 需完整 Tcl/Tk 数据
 - 若默认 `python` 是精简运行时（缺 `init.tcl`），`run.bat` 会自动尝试 `py -3` 与官方 Python 3.15
 
 <a name="gui"></a>
