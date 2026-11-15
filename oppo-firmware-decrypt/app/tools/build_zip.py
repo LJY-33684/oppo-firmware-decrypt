@@ -47,11 +47,16 @@ def main():
         for path, rel in iter_files():
             arcname = f'{ARC_ROOT}/{rel.as_posix()}'
             info = zipfile.ZipInfo.from_file(path, arcname)
+            data = path.read_bytes()
             # Windows 上创建的 zip 不会自动保留 Linux 可执行位；显式写入 755，
-            # 保证解压后 run.sh / app/bin/linux/x86_64/brotli 可直接执行。
+            # 并把创建者标记为 Unix，Linux 的 unzip 才会恢复权限。
             if rel.as_posix() == 'run.sh' or rel.as_posix().startswith('app/bin/linux/'):
+                info.create_system = 3
                 info.external_attr = (0o100755 << 16) | (info.external_attr & 0xFFFF)
-            z.writestr(info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED,
+            # Windows 检出可能把 run.sh 转成 CRLF；打包时统一回 LF，避免 bad interpreter。
+            if rel.as_posix().endswith('.sh'):
+                data = data.replace(b'\r\n', b'\n').replace(b'\r', b'\n')
+            z.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED,
                        compresslevel=6)
             count += 1
     size = out.stat().st_size
