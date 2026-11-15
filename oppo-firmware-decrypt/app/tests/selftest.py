@@ -39,6 +39,7 @@ from app.core import sdat2img             # noqa: E402
 
 RESULTS = []
 TMP = Path(tempfile.mkdtemp(prefix='oppo_dec_selftest_'))
+SKIP_GUI = os.environ.get('OPPO_SKIP_GUI') == '1'
 
 
 class Skip(Exception):
@@ -349,7 +350,7 @@ def t_cli():
     cli = ROOT / 'decrypt_cli.py'
     r = subprocess.run([sys.executable, str(cli), '--version'],
                        capture_output=True, text=True, encoding='utf-8')
-    assert r.returncode == 0 and r.stdout.strip() == '1.0.0.001', r.stdout
+    assert r.returncode == 0 and r.stdout.strip() == '1.0.0.002', r.stdout
     ver = r.stdout.strip()
 
     r2 = subprocess.run([sys.executable, str(cli), 'decrypt', '--input',
@@ -467,8 +468,13 @@ def main():
     check('OPS → 分区导出', t_ops)
     check('CLI 契约', t_cli)
     check('GitHub / Gitee 更新源配置', t_update)
-    check('GUI 冒烟', t_gui)
-    check('GUI 端到端解密', t_gui_decrypt)
+    if SKIP_GUI:
+        for name in ('GUI 冒烟', 'GUI 端到端解密'):
+            RESULTS.append((None, name, 'OPPO_SKIP_GUI=1'))
+            print(f'[SKIP] {name} — OPPO_SKIP_GUI=1')
+    else:
+        check('GUI 冒烟', t_gui)
+        check('GUI 端到端解密', t_gui_decrypt)
 
     failed = [r for r in RESULTS if r[0] is False]
     skipped = [r for r in RESULTS if r[0] is None]

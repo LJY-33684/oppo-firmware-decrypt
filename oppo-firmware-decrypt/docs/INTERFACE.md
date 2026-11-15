@@ -17,7 +17,7 @@ python decrypt_cli.py -h | --help
 | `--outdir` | 否 | 输出目录。缺省为固件同目录 `<固件名>_decrypted/`；若该目录已存在且非空，自动追加 `_YYYYMMDD-HHMMSS` |
 | `--out-type` | 否 | `img`（默认）展开并转换分区镜像；`zip` 只输出解密后的卡刷包（仅 OZIP 生效，OFP/OPS 会提示后仍按 img 输出） |
 | `--log-file` | 否 | 额外日志文件（UTF-8），stdout 照常输出 |
-| `--version` | 否 | 打印版本号（如 `1.0.0.001`）后退出 0 |
+| `--version` | 否 | 打印版本号（如 `1.0.0.002`）后退出 0 |
 
 ## 2. 退出码
 
@@ -81,4 +81,4 @@ int code = p.waitFor();   // 0/1/2 按上表判断
 
 - 版本号唯一真源为 `app/version.py`，`--version` 与 GUI 标题一致。
 - 本接口为对外契约：新增功能优先以可选参数加入，不改变既有参数名、语义与退出码含义。
-- 更新检查不在 CLI 契约内（GUI 专用；GitHub / Gitee 双源，Gitee 仓库待创建）。
+- 更新检查不在 CLI 契约内（GUI 专用；GitHub / Gitee 双源，两个仓库与发行版均已创建）。

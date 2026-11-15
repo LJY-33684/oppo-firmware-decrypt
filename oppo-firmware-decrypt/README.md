@@ -3,11 +3,12 @@
 从 [mtk-garbage-porttool](https://github.com/LJY-33684/mtk-garbage-porttool-master) 中抽出的独立解密工具：
 只做一件事 —— 把 OPPO 系固件解开，得到分区镜像或标准卡刷包。
 
-- 版本：**1.0.0.001**
+- 版本：**1.0.0.002**
 - 仓库：https://github.com/LJY-33684/oppo-firmware-decrypt
 - 支持格式：**OFP（MTK）/ OZIP（Realme / OPPO）/ OPS（OnePlus）**
-- 平台：Windows x64（主），Linux 可运行（需系统自备 openssl / brotli）
-- Python：3.10+（已在 3.15 上完成 15/15 自检；3.13 可运行核心与 CLI，GUI 需完整 Tcl/Tk 数据）
+- 平台：Windows x64（主）/ Linux x86_64（GUI + CLI）
+- Linux：系统 `openssl`（AES）+ 随包 `app/bin/linux/x86_64/brotli`（`.new.dat.br`）
+- Python：3.10+（已在 3.15 上完成 15/15 自检；Linux 3.12 核心 13/13 通过，GUI 需真实桌面）
 - 许可：GPL-3.0（解密算法源自 B. Kerler 的 MIT 组件，见 `docs/THIRD_PARTY_NOTICES.md`）
 
 ## 快速开始
@@ -15,10 +16,13 @@
 ### 图形界面
 
 双击 `run.bat`；若默认 `python` 缺少 Tcl/Tk（精简运行时常见），脚本会自动改用
-`py -3` 或官方 Python 3.15 启动并提示实际解释器。也可以直接：
+`py -3` 或官方 Python 3.15 启动并提示实际解释器。Linux 桌面用 `./run.sh`。
+也可以直接：
 
 ```bash
-python main.py
+python main.py        # Windows
+./run.sh              # Linux GUI
+./run.sh --cli decrypt --input <固件>   # Linux CLI
 ```
 
 界面只有四项：选固件 → 选输出类型 → 选输出目录 → 开始解密；右侧是实时日志，
@@ -69,6 +73,7 @@ oppo-firmware-decrypt/（源码子目录）
 ├─ main.py                  GUI 启动入口（双击 run.bat 或 python main.py）
 ├─ decrypt_cli.py           CLI 入口（外部壳调用，接口契约不变）
 ├─ run.bat                  Windows 启动脚本（自动挑选带 Tcl/Tk 的 Python）
+├─ run.sh                   Linux 启动脚本（检测 Python / Tk，支持 --cli）
 ├─ app/                     全部实现与随包资源（一个包收口）
 │  ├─ __init__.py
 │  ├─ gui.py                轻量 Tk 界面（Per-Monitor V2 DPI 感知）
@@ -84,7 +89,8 @@ oppo-firmware-decrypt/（源码子目录）
 │  │  ├─ sdat2img.py        new.dat + transfer.list → img
 │  │  ├─ pyaes/             纯 Python AES 兜底
 │  │  └─ _vendor_brotli/    内置 brotli Python 库（cp312–cp315 × win/manylinux）
-│  ├─ bin/win/x86_64/       openssl.exe + libeay32.dll + ssleay32.dll + brotli.exe
+│  ├─ bin/win/x86_64/       Windows openssl.exe + libeay32.dll + ssleay32.dll + brotli.exe
+│  ├─ bin/linux/x86_64/     Linux brotli 1.1.0（静态链接 libc/libm）
 │  ├─ licenses/             OpenSSL / Brotli 许可原文
 │  ├─ tests/selftest.py     合成样本自检（15 项）
 │  └─ tools/                构建与组件脚本
@@ -123,8 +129,8 @@ CLI 契约、更新源配置、GUI 构建与端到端解密。
 发行说明 markdown 渲染、GUI 弹窗全部保留。**当前 `UPDATE_ENABLED = True`，GitHub 更新源已配置**：
 `raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
 `contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 已指向
-GitHub `1.0.0.001` Release 资产，`update_url_2` 已按 Gitee 同版本路径预留。GUI 底部
-「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；Gitee 仓库尚未创建，建仓前该源不可用。
+GitHub `1.0.0.002` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
+「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；两个仓库与发行版均已创建，双源可用。
 
 ## 已知边界
 
@@ -134,7 +140,8 @@ GitHub `1.0.0.001` Release 资产，`update_url_2` 已按 Gitee 同版本路径�
   与真实 OFP 一致；若遇到首块未加密的私有打包，需另做适配。
 - 内置 `openssl.exe` 为 1.0.2u（Windows x64 构建），仅用于解密加速；
   其许可与 GPL-3.0 存在历史争议，介意可删除该组件，工具会自动降级 pyaes。
-- Linux 下 `app/bin/win` 不可用，需系统安装 `openssl` 与 `brotli`（或 `pip install brotli`）。
+- Linux 下 `app/bin/win` 不可用：AES 使用系统 `openssl`，brotli 使用随包 `app/bin/linux/x86_64/brotli`。
+- Linux 无图形环境时不能启动 GUI；可用 `OPPO_SKIP_GUI=1 python3 app/tests/selftest.py` 跳过两项 GUI 测试，或用 `./run.sh --cli` 运行 CLI。
 - GUI 只暴露解密必需项，不含移植方案表、自动更新弹窗；单实例锁与仓库图标已保留。
 
 ## 致谢与许可

@@ -45,7 +45,14 @@ def main():
     count = 0
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         for path, rel in iter_files():
-            z.write(path, f'{ARC_ROOT}/{rel.as_posix()}')
+            arcname = f'{ARC_ROOT}/{rel.as_posix()}'
+            info = zipfile.ZipInfo.from_file(path, arcname)
+            # Windows 上创建的 zip 不会自动保留 Linux 可执行位；显式写入 755，
+            # 保证解压后 run.sh / app/bin/linux/x86_64/brotli 可直接执行。
+            if rel.as_posix() == 'run.sh' or rel.as_posix().startswith('app/bin/linux/'):
+                info.external_attr = (0o100755 << 16) | (info.external_attr & 0xFFFF)
+            z.writestr(info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED,
+                       compresslevel=6)
             count += 1
     size = out.stat().st_size
     print(f'已生成：{out}')

@@ -11,6 +11,8 @@ gui.py — OPPO / Realme / OnePlus 固件解密工具 轻量图形界面
 import ctypes
 import os
 import queue
+import shutil
+import subprocess
 import sys
 import threading
 import tkinter as tk
@@ -29,10 +31,17 @@ from . import updater                                  # noqa: E402
 from .core import oppo_decrypt                        # noqa: E402
 
 APP_TITLE = 'OPPO / Realme / OnePlus 固件解密工具'
-UI_FONT = ('Microsoft YaHei', 9)
-MONO_FONT = ('Consolas', 9)
+if sys.platform == 'win32':
+    UI_FAMILY, MONO_FAMILY = 'Microsoft YaHei', 'Consolas'
+elif sys.platform == 'darwin':
+    UI_FAMILY, MONO_FAMILY = 'PingFang SC', 'Menlo'
+else:
+    # Linux 常见 CJK 字体；缺失时 Tk 会回退到系统默认字体。
+    UI_FAMILY, MONO_FAMILY = 'Noto Sans CJK SC', 'DejaVu Sans Mono'
+UI_FONT = (UI_FAMILY, 9)
+MONO_FONT = (MONO_FAMILY, 9)
 
-# 仓库尚未创建；建仓后这两个地址即为有效仓库主页。图标文件在 app/icons/。
+# GitHub / Gitee 仓库主页；两个仓库均已创建，图标文件在 app/icons/。
 REPO_LINKS = (
     ('icon_github.png', 'https://github.com/LJY-33684/oppo-firmware-decrypt'),
     ('icon_gitee.png', 'https://gitee.com/Q3368436451/oppo-firmware-decrypt'),
@@ -67,6 +76,24 @@ def _enable_dpi_awareness():
 
 
 _enable_dpi_awareness()
+
+
+def _open_path(path):
+    """用系统默认方式打开路径（Windows / macOS / Linux 分别适配）。"""
+    if sys.platform == 'win32':
+        os.startfile(path)  # noqa: S606  (Windows)
+        return
+    if sys.platform == 'darwin':
+        subprocess.Popen(['open', path], stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, close_fds=True)
+        return
+    opener = next((x for x in ('xdg-open', 'gio', 'kde-open', 'gnome-open')
+                   if shutil.which(x)), None)
+    if not opener:
+        raise RuntimeError('未找到 xdg-open / gio / kde-open，请安装 xdg-utils')
+    cmd = [opener, 'open', path] if opener == 'gio' else [opener, path]
+    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     close_fds=True)
 
 
 class QueueLog:
@@ -153,7 +180,7 @@ class App(tk.Tk):
         left.pack(side='left', fill='y', padx=(0, 8))
 
         title = ttk.Label(left, text=APP_TITLE,
-                          font=('Microsoft YaHei', 10, 'bold'))
+                          font=(UI_FAMILY, 10, 'bold'))
         title.pack(anchor='w', pady=(2, 2))
         ttk.Label(left, text='支持 OFP（MTK）/ OZIP / OPS；原始固件只读不动，产物写入输出目录。',
                   foreground='#666666', wraplength=410).pack(anchor='w', pady=(0, 10))
@@ -186,7 +213,7 @@ class App(tk.Tk):
         self.outdir_entry.pack(side='left', fill='x', expand=True)
         ttk.Button(row2, text='选择', width=7, command=self._choose_outdir).pack(side='left', padx=(5, 0))
         ttk.Label(out_box, text='留空 = 固件同目录 <固件名>_decrypted/',
-                  foreground='#888888', font=('Microsoft YaHei', 8)).pack(
+                  foreground='#888888', font=(UI_FAMILY, 8)).pack(
             anchor='w', padx=10, pady=(0, 6))
         ttk.Checkbutton(out_box, text='完成后自动打开输出目录',
                         variable=self.open_after_var).pack(anchor='w', padx=10, pady=(0, 8))
@@ -203,13 +230,13 @@ class App(tk.Tk):
 
         # 后端信息
         ttk.Label(left, textvariable=self.backend_var, foreground='#666666',
-                  font=('Microsoft YaHei', 8), wraplength=410).pack(anchor='w', pady=(0, 6))
+                  font=(UI_FAMILY, 8), wraplength=410).pack(anchor='w', pady=(0, 6))
 
         # 底部：版本 / 更新 / 打开目录
         bottom = ttk.Frame(left)
         bottom.pack(side='bottom', fill='x', pady=(8, 0))
         ttk.Label(bottom, text=f'版本号：{__version__}',
-                  foreground='#888888', font=('Microsoft YaHei', 8)).pack(side='left')
+                  foreground='#888888', font=(UI_FAMILY, 8)).pack(side='left')
 
         # GitHub / Gitee 仓库图标：点击用系统浏览器打开对应页面
         icon_dir = Path(__file__).resolve().parent / 'icons'
@@ -230,10 +257,10 @@ class App(tk.Tk):
                                      command=self._check_update)
         self.update_btn.pack(side='right', padx=(0, 5))
 
-        # 更新源切换：GitHub / Gitee（地址已预留，Gitee 仓库待创建）
+        # 更新源切换：GitHub / Gitee（地址均已配置，发行版均已创建）
         src_frame = ttk.Frame(bottom)
         src_frame.pack(side='right', padx=(8, 0))
-        ttk.Label(src_frame, text='更新源', font=('Microsoft YaHei', 8)).pack(side='left')
+        ttk.Label(src_frame, text='更新源', font=(UI_FAMILY, 8)).pack(side='left')
         self.update_source_menu = ttk.OptionMenu(
             src_frame, self.update_source, updater.DEFAULT_SOURCE, 'GitHub', 'Gitee')
         self.update_source_menu.configure(width=7)
@@ -243,7 +270,7 @@ class App(tk.Tk):
         self.risk_label = ttk.Label(
             left,
             text='刷机有风险，操作前务必备份原系统；请保留原厂固件以备恢复。',
-            font=('Microsoft YaHei', 8), foreground='#b06000',
+            font=(UI_FAMILY, 8), foreground='#b06000',
             wraplength=470, justify='left')
         self.risk_label.pack(side='bottom', anchor='w', fill='x', pady=(6, 2))
 
@@ -421,7 +448,7 @@ class App(tk.Tk):
             messagebox.showinfo('目录不存在', f'输出目录还不存在：\n{d}')
             return
         try:
-            os.startfile(d)  # noqa: S606  (Windows)
+            _open_path(d)
         except Exception as e:
             messagebox.showerror('打开失败', f'无法打开输出目录：{e}')
 
@@ -453,7 +480,7 @@ class App(tk.Tk):
         header.pack(fill='x', padx=12, pady=(10, 5))
         ttk.Label(header, text=(f'当前已是最新版本：{tag}' if tag == __version__
                                 else f'发现新版本：{tag}'),
-                  font=('Microsoft YaHei', 10, 'bold')).pack(side='left')
+                  font=(UI_FAMILY, 10, 'bold')).pack(side='left')
 
         def open_download():
             if download_url:
@@ -464,7 +491,7 @@ class App(tk.Tk):
 
         content = ttk.Frame(win)
         content.pack(fill='both', expand=True, padx=12, pady=(0, 10))
-        text = tk.Text(content, wrap='word', font=('Microsoft YaHei', 10), padx=8, pady=8)
+        text = tk.Text(content, wrap='word', font=(UI_FAMILY, 10), padx=8, pady=8)
         bar = ttk.Scrollbar(content, orient='vertical', command=text.yview)
         text.configure(yscrollcommand=bar.set)
         bar.pack(side='right', fill='y')

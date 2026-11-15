@@ -1,11 +1,11 @@
 # OPPO 固件解密工具 / OPPO Firmware Decrypt Tool
 
-> 当前版本 / Current version：**1.0.0.001**
+> 当前版本 / Current version：**1.0.0.002**
 
 > **仓库地址 / Repository：**
 > - **GitHub**：https://github.com/LJY-33684/oppo-firmware-decrypt
 > - **Gitee 镜像**：https://gitee.com/Q3368436451/oppo-firmware-decrypt
-> - **Gitee 发行版**：https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.001
+> - **Gitee 发行版**：https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.002
 
 ## 目录 / Table of Contents
 
@@ -71,8 +71,9 @@ GUI and CLI, and never modifies the source firmware.
 
 - **3. 随包组件 / Bundled backends**
   - Windows 自带 `openssl.exe`（AES 加速）与 `brotli.exe`（`.new.dat.br` 解压）
+  - Linux 自带 `app/bin/linux/x86_64/brotli`（brotli 1.1.0，仅依赖 libc/libm），AES 使用系统 `openssl`
   - openssl 缺失时自动降级 `pyaes`；brotli 缺失时自动回落到 vendored Python 库
-  - 无需用户额外安装依赖即可开箱运行
+  - Windows 无需额外安装依赖；Linux 只需系统 `openssl`（常见发行版默认自带）
 
 - **4. 图形界面 / GUI**
   - 选固件 → 选输出类型 → 选输出目录 → 开始解密，四步操作
@@ -126,6 +127,7 @@ oppo-firmware-decrypt/
    ├─ main.py                GUI 入口
    ├─ decrypt_cli.py         CLI 入口（外部壳调用）
    ├─ run.bat                Windows 启动脚本（自动挑选带 Tcl/Tk 的 Python）
+   ├─ run.sh                 Linux 启动脚本（自动检测 Python / Tk，支持 --cli）
    ├─ app/                   全部实现与随包资源（一个包收口）
    │  ├─ gui.py              轻量 Tk 界面（Per-Monitor V2 DPI 感知）
    │  ├─ singleton.py        单实例锁（跳转已运行窗口 / 清除残留锁）
@@ -134,7 +136,8 @@ oppo-firmware-decrypt/
    │  ├─ common.py           CLI / GUI 共用逻辑
    │  ├─ version.py          版本号唯一真源
    │  ├─ core/               解密核心（OFP / OZIP / OPS、brotli、sdat2img、pyaes）
-   │  ├─ bin/win/x86_64/     openssl / brotli 加速组件
+   │  ├─ bin/win/x86_64/     Windows openssl / brotli 加速组件
+   │  ├─ bin/linux/x86_64/   Linux brotli 加速组件
    │  ├─ licenses/          OpenSSL / Brotli 许可原文
    │  ├─ tests/selftest.py   合成样本自检（15 项）
    │  └─ tools/              build_zip.py + 获取 openssl/brotli 组件脚本
@@ -147,8 +150,9 @@ oppo-firmware-decrypt/
 ## 环境要求 / Requirements
 
 - **Windows x64**：主支持平台，Python 3.10+，需带 Tcl/Tk（官方 Python 默认包含）
-- **Linux**：可运行 CLI；需系统自备 `openssl` 与 `brotli`（或 `pip install brotli`）
-- 已在 Python 3.15 上完成 15/15 自检；Python 3.13 可运行核心与 CLI，GUI 需完整 Tcl/Tk 数据
+- **Linux x86_64**：支持 GUI / CLI，Python 3.10+，需带 Tcl/Tk（Debian/Ubuntu 装 `python3-tk`）；AES 使用系统 `openssl`，brotli 使用随包 `app/bin/linux/x86_64/brotli`
+- Linux 桌面用 `./run.sh`；无图形环境时用 `./run.sh --cli` 或直接调用 `decrypt_cli.py`
+- 已在 Python 3.15 上完成 15/15 自检；Linux Python 3.12 核心 13/13 通过（无头环境 GUI 需真实桌面验证）
 - 若默认 `python` 是精简运行时（缺 `init.tcl`），`run.bat` 会自动尝试 `py -3` 与官方 Python 3.15
 
 <a name="gui"></a>
@@ -156,7 +160,8 @@ oppo-firmware-decrypt/
 
 ```bash
 cd oppo-firmware-decrypt
-run.bat          # 或：python main.py
+run.bat          # Windows：或 python main.py
+./run.sh         # Linux：GUI；无显示环境用 ./run.sh --cli
 ```
 
 操作顺序：
@@ -238,16 +243,16 @@ python decrypt_cli.py --version
 渲染与 GUI 弹窗全部保留。当前 **`UPDATE_ENABLED = True`，GitHub 更新源已配置**：
 `raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
 `contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 指向
-GitHub `1.0.0.001` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
+GitHub `1.0.0.002` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
 「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；两个 Release 均已发布，双源可用。
 
 <a name="release"></a>
 ## 发行包 / Release Package
 
-发行资产命名：`oppo-firmware-decrypt-1.0.0.001.zip`，zip 内根目录为 `oppo-firmware-decrypt/`，
-解压后可直接 `run.bat` 启动。当前发布页：
-- GitHub：[`1.0.0.001`](https://github.com/LJY-33684/oppo-firmware-decrypt/releases/tag/1.0.0.001)
-- Gitee：[`1.0.0.001`](https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.001)
+发行资产命名：`oppo-firmware-decrypt-1.0.0.002.zip`，zip 内根目录为 `oppo-firmware-decrypt/`，
+解压后 Windows 可直接 `run.bat`、Linux 可直接 `./run.sh` 启动。当前发布页：
+- GitHub：[`1.0.0.002`](https://github.com/LJY-33684/oppo-firmware-decrypt/releases/tag/1.0.0.002)
+- Gitee：[`1.0.0.002`](https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.002)
 
 打包命令：
 
@@ -266,7 +271,8 @@ python app/tools/build_zip.py
 - 合成样本只能证明算法链路，不能覆盖各家机型密钥表差异；真实 OPS 大包尚未做端到端验证。
 - OFP 沿用上游实现：按「加密首块（`enclength > 0`）+ 明文余下部分」读取；私有打包布局可能需适配。
 - 内置 `openssl.exe` 为 1.0.2u，仅用于加速；其许可与 GPL-3.0 存在历史争议，可删除并回落到 pyaes。
-- Linux 下 `app/bin/win` 不可用，需要系统安装 `openssl` 与 `brotli`。
+- Linux 下 `app/bin/win` 不可用：AES 使用系统 `openssl`，brotli 使用随包 `app/bin/linux/x86_64/brotli`（x86_64）。
+- Linux 无图形环境时不能启动 GUI；请用 `./run.sh --cli` 或 `decrypt_cli.py`，并安装 `python3-tk` 后使用桌面。
 - GUI 只暴露解密必需项，不含移植方案表、自动更新弹窗；单实例锁、仓库图标与风险提示已保留。
 
 <a name="faq"></a>
@@ -305,6 +311,12 @@ risk; the developers assume no responsibility for damage, data loss, or warranty
 <a name="history"></a>
 ## 版本记录 / Version History
 
+- **1.0.0.002**（Linux 适配 / Linux support）
+  - 新增 Linux `run.sh` 启动脚本：自动选择 Python 3.10+、检测 Tk，无显示环境时引导 CLI
+  - 新增 Linux x86_64 `brotli` 1.1.0（随包，仅依赖 libc/libm），覆盖 Python 3.10/3.11 等无 vendor 库的解释器
+  - Linux GUI：`xdg-open` / `gio` / `kde-open` 打开输出目录，Windows 字体硬编码改为平台回退
+  - 打包脚本为 `run.sh` 与 Linux `brotli` 写入 755 可执行位，解压即用
+  - Linux 实测核心 13/13 通过；GUI 无头自检可用 `OPPO_SKIP_GUI=1` 跳过
 - **1.0.0.001**（首个独立版本 / initial standalone release）
   - 从 mtk-garbage-porttool 抽出 OPPO 解密模块，保留 OFP / OZIP / OPS 三格式
   - 新增独立 GUI、稳定 CLI 与 15 项合成样本自检

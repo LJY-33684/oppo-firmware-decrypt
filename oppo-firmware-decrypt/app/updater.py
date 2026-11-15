@@ -11,17 +11,24 @@
 import base64
 import json
 import re
+import sys
 import urllib.request
 import webbrowser
 
 # tkinter.END 的等价常量（避免模块级依赖 tkinter）
 END = 'end'
+if sys.platform == 'win32':
+    _UI_FAMILY, _MONO_FAMILY = 'Microsoft YaHei', 'Consolas'
+elif sys.platform == 'darwin':
+    _UI_FAMILY, _MONO_FAMILY = 'PingFang SC', 'Menlo'
+else:
+    _UI_FAMILY, _MONO_FAMILY = 'Noto Sans CJK SC', 'DejaVu Sans Mono'
 
-# 更新检查总开关：GitHub / Gitee 地址均已配置；Gitee 仓库待创建
+# 更新检查总开关：GitHub / Gitee 地址均已配置；两个仓库与发行版均已创建
 UPDATE_ENABLED = True
 
 # ============================================================
-# 更新源配置（GitHub 已启用；Gitee 地址已预留，仓库待创建）
+# 更新源配置（GitHub / Gitee 均已启用；两个仓库与发行版均已创建）
 #   raw           latest_version.txt 的原始文件地址
 #   api           发行版 API 模板（{tag} 会被替换为版本号）
 #   contents_api  GitHub contents API（可选，绕过 CDN 缓存）
@@ -147,11 +154,11 @@ def fetch_release_body(src_cfg, tag, timeout=UPDATE_TIMEOUT):
 def render_markdown(text_widget, markdown_text):
     """简单 markdown 渲染：标题、粗体、列表、代码块、链接"""
     # 配置 tag 样式
-    text_widget.tag_configure('h1', font=('Microsoft YaHei', 16, 'bold'), spacing1=8, spacing3=4)
-    text_widget.tag_configure('h2', font=('Microsoft YaHei', 14, 'bold'), spacing1=6, spacing3=3)
-    text_widget.tag_configure('h3', font=('Microsoft YaHei', 12, 'bold'), spacing1=4, spacing3=2)
-    text_widget.tag_configure('bold', font=('Microsoft YaHei', 10, 'bold'))
-    text_widget.tag_configure('code', font=('Consolas', 9), background='#f0f0f0')
+    text_widget.tag_configure('h1', font=(_UI_FAMILY, 16, 'bold'), spacing1=8, spacing3=4)
+    text_widget.tag_configure('h2', font=(_UI_FAMILY, 14, 'bold'), spacing1=6, spacing3=3)
+    text_widget.tag_configure('h3', font=(_UI_FAMILY, 12, 'bold'), spacing1=4, spacing3=2)
+    text_widget.tag_configure('bold', font=(_UI_FAMILY, 10, 'bold'))
+    text_widget.tag_configure('code', font=(_MONO_FAMILY, 9), background='#f0f0f0')
     text_widget.tag_configure('link', foreground='#0066cc', underline=True)
     text_widget.tag_configure('list', lmargin1=20, lmargin2=20)
     text_widget.tag_configure('blockquote', lmargin1=16, lmargin2=16, foreground='#888888')
