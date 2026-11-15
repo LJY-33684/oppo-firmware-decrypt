@@ -109,6 +109,7 @@ class App(tk.Tk):
         self.format_var = tk.StringVar(value='识别格式：—')
         self.backend_var = tk.StringVar(value='AES 后端：检测中… | brotli 后端：检测中…')
         self.open_after_var = tk.BooleanVar(value=True)
+        self.update_source = tk.StringVar(value=updater.DEFAULT_SOURCE)
 
         self._build_ui()
         self.protocol('WM_DELETE_WINDOW', self._on_close)
@@ -228,6 +229,15 @@ class App(tk.Tk):
         self.update_btn = ttk.Button(bottom, text='检查更新', width=9,
                                      command=self._check_update)
         self.update_btn.pack(side='right', padx=(0, 5))
+
+        # 更新源切换：GitHub / Gitee（地址已预留，Gitee 仓库待创建）
+        src_frame = ttk.Frame(bottom)
+        src_frame.pack(side='right', padx=(8, 0))
+        ttk.Label(src_frame, text='更新源', font=('Microsoft YaHei', 8)).pack(side='left')
+        self.update_source_menu = ttk.OptionMenu(
+            src_frame, self.update_source, updater.DEFAULT_SOURCE, 'GitHub', 'Gitee')
+        self.update_source_menu.configure(width=7)
+        self.update_source_menu.pack(side='left')
 
         # 风险提示（移植工具同款橙色提示，放在底部按钮上方）
         self.risk_label = ttk.Label(
@@ -418,10 +428,11 @@ class App(tk.Tk):
     # ---------------- 检查更新 ----------------
     def _check_update(self):
         self.update_btn.configure(text='检查更新中…', state='disabled')
-        threading.Thread(target=self._update_worker, daemon=True).start()
+        src = self.update_source.get()          # tkinter 变量只能在主线程读取
+        threading.Thread(target=self._update_worker, args=(src,), daemon=True).start()
 
-    def _update_worker(self):
-        result = updater.fetch_update_info(updater.DEFAULT_SOURCE)
+    def _update_worker(self, source):
+        result = updater.fetch_update_info(source)
         self.q.put(('update', result))
 
     def _on_update_result(self, result):

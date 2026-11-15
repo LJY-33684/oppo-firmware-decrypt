@@ -12,7 +12,7 @@ selftest.py — 环境与解密链路自检（不接触真实固件，全部用�
   6. PK 型加密 OZIP 全链路（含真实 AES 解密 + 重建 zip + 展开转镜像）
   7. 明文 OZIP（无 oppo_metadata、boot.img 未加密）直出卡刷包
   8. CLI 契约：--version / 缺文件退出码 / 默认输出目录
-  9. 更新模块在未配置地址时的行为
+  9. 更新模块的 GitHub / Gitee 双更新源配置
   10. GUI 控件构建、GitHub/Gitee 图标加载
   11. GUI 端到端解密
 
@@ -373,10 +373,19 @@ def t_cli():
 # ---------------- 8. 更新模块 ----------------
 def t_update():
     from app import updater
-    res = updater.fetch_update_info()
-    assert res.ok is False, '未配置地址时不应发起请求'
-    assert '尚未配置' in res.reason, res.reason
-    return res.reason
+    assert updater.UPDATE_ENABLED is True, '更新总开关未启用'
+    assert updater.is_configured('GitHub'), 'GitHub 更新源未配置'
+    cfg = updater.UPDATE_SOURCES['GitHub']
+    assert cfg['raw'].startswith('https://raw.githubusercontent.com/'), cfg['raw']
+    assert '{tag}' in cfg['api'], cfg['api']
+    assert cfg['contents_api'].startswith('https://api.github.com/'), cfg['contents_api']
+
+    assert updater.is_configured('Gitee'), 'Gitee 更新源未配置'
+    gitee = updater.UPDATE_SOURCES['Gitee']
+    assert gitee['raw'].startswith('https://gitee.com/'), gitee['raw']
+    assert 'gitee.com/api/v5/' in gitee['api'], gitee['api']
+    assert '{tag}' in gitee['api'], gitee['api']
+    return 'GitHub / Gitee 双更新源地址已配置'
 
 
 # ---------------- 9. GUI ----------------
@@ -394,9 +403,11 @@ def t_gui():
     assert app.title().startswith('OPPO'), app.title()
     assert app._icon_ready, '窗口图标未成功加载（app.ico / app.png）'
     assert len(app.repo_icons) == 2, f'仓库图标未全部加载：{len(app.repo_icons)}'
+    assert app.update_source.get() == 'GitHub', '更新源默认值不是 GitHub'
+    assert app.update_source_menu is not None, '更新源下拉框未创建'
     assert '刷机有风险' in app.risk_label.cget('text'), '风险提示未创建'
     app.destroy()
-    return '控件构建、窗口图标、仓库图标、风险提示与销毁正常（窗口未显示）'
+    return '控件构建、窗口图标、仓库图标、更新源切换与风险提示正常（窗口未显示）'
 
 
 def t_gui_decrypt():
@@ -455,7 +466,7 @@ def main():
     check('OFP → 分区导出', t_ofp)
     check('OPS → 分区导出', t_ops)
     check('CLI 契约', t_cli)
-    check('更新模块未配置行为', t_update)
+    check('GitHub / Gitee 更新源配置', t_update)
     check('GUI 冒烟', t_gui)
     check('GUI 端到端解密', t_gui_decrypt)
 

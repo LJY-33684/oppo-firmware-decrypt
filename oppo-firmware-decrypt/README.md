@@ -74,7 +74,7 @@ oppo-firmware-decrypt/（源码子目录）
 │  ├─ gui.py                轻量 Tk 界面（Per-Monitor V2 DPI 感知）
 │  ├─ singleton.py          单实例锁（跳转已运行窗口 / 清除残留锁）
 │  ├─ icons/                窗口图标 app.ico/app.png + GitHub / Gitee 图标
-│  ├─ updater.py            更新检查模块（地址暂空，见下）
+│  ├─ updater.py            更新检查模块（GitHub / Gitee 双源，见下）
 │  ├─ common.py             CLI/GUI 共用（默认输出目录等）
 │  ├─ version.py            版本号唯一真源
 │  ├─ core/                 解密核心包
@@ -114,16 +114,17 @@ python app/tests/selftest.py
 
 用合成样本覆盖：AES 双后端一致性、brotli 解压、sdat2img 转换、格式识别、
 加密 OZIP 全链路、明文 OZIP、OFP 分区导出、OPS settings.xml 解密（MBox5）、
-CLI 契约、更新模块未配置行为、GUI 构建与端到端解密。
+CLI 契约、更新源配置、GUI 构建与端到端解密。
 无 Tcl/Tk 的 Python 会自动跳过 GUI 两项并标注 SKIP。
 
 ## 更新检查
 
 `app/updater.py` 复用自 mtk-garbage-porttool：网络请求、`latest_version.txt` 解析、
-发行说明 markdown 渲染、GUI 弹窗全部保留。**当前 `UPDATE_SOURCES` 的地址为空，
-`UPDATE_ENABLED = False`**，点击「检查更新」只会提示「更新源尚未配置」，不会发任何网络请求。
-GitHub 仓库已创建；发布 Release 资产后，填入 raw / api 地址并把开关改为 `True` 即可启用，其余逻辑无需改动。
-`latest_version.txt` 已按版本号 1.0.0.001 预置在仓库根目录，发布时补上两个下载地址即可。
+发行说明 markdown 渲染、GUI 弹窗全部保留。**当前 `UPDATE_ENABLED = True`，GitHub 更新源已配置**：
+`raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
+`contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 已指向
+GitHub `1.0.0.001` Release 资产，`update_url_2` 已按 Gitee 同版本路径预留。GUI 底部
+「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；Gitee 仓库尚未创建，建仓前该源不可用。
 
 ## 已知边界
 

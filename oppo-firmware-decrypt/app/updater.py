@@ -3,12 +3,10 @@
 
 职责：网络请求、版本解析、发行说明拉取、markdown 渲染；GUI 只负责窗口与交互。
 与上游差异：
-  1. 更新源地址暂留空（GitHub 仓库尚未创建），UPDATE_ENABLED=False 时
-     fetch_update_info() 直接返回「未配置更新源」，不发任何网络请求；
+  1. GitHub 更新源已配置并启用；Gitee 地址也已按预留路径填写，仓库创建后再验证；
   2. 去掉模块级 tkinter 依赖（END 用字符串 'end'，与 tkinter.END 等价），
      让 CLI 在无 tkinter 的环境也能 import 本模块；
-  3. 仓库建立后只需填写下方 UPDATE_SOURCES 的 raw / api / contents_api，
-     并把 UPDATE_ENABLED 改为 True，其余逻辑无需改动。
+  3. 版本与下载地址来自仓库根目录 latest_version.txt，发行说明来自 Releases API。
 """
 import base64
 import json
@@ -19,11 +17,11 @@ import webbrowser
 # tkinter.END 的等价常量（避免模块级依赖 tkinter）
 END = 'end'
 
-# 更新检查总开关：仓库创建并填好地址后再打开
-UPDATE_ENABLED = False
+# 更新检查总开关：GitHub / Gitee 地址均已配置；Gitee 仓库待创建
+UPDATE_ENABLED = True
 
 # ============================================================
-# 更新源配置（创建 GitHub / Gitee 仓库后填写）
+# 更新源配置（GitHub 已启用；Gitee 地址已预留，仓库待创建）
 #   raw           latest_version.txt 的原始文件地址
 #   api           发行版 API 模板（{tag} 会被替换为版本号）
 #   contents_api  GitHub contents API（可选，绕过 CDN 缓存）
@@ -31,14 +29,14 @@ UPDATE_ENABLED = False
 # ============================================================
 UPDATE_SOURCES = {
     'GitHub': {
-        'raw': '',
-        'api': '',
-        'contents_api': '',
+        'raw': 'https://raw.githubusercontent.com/LJY-33684/oppo-firmware-decrypt/main/latest_version.txt',
+        'api': 'https://api.github.com/repos/LJY-33684/oppo-firmware-decrypt/releases/tags/{tag}',
+        'contents_api': 'https://api.github.com/repos/LJY-33684/oppo-firmware-decrypt/contents/latest_version.txt?ref=main',
         'url_key': 'update_url_1',
     },
     'Gitee': {
-        'raw': '',
-        'api': '',
+        'raw': 'https://gitee.com/Q3368436451/oppo-firmware-decrypt/raw/main/latest_version.txt',
+        'api': 'https://gitee.com/api/v5/repos/Q3368436451/oppo-firmware-decrypt/releases/tags/{tag}',
         'url_key': 'update_url_2',
     },
 }

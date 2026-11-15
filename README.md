@@ -91,12 +91,13 @@ GUI and CLI, and never modifies the source firmware.
 
 - **7. 界面细节 / UI details**
   - 底部版本号旁提供 GitHub / Gitee 图标，点击用系统浏览器打开
+  - 底部「更新源」下拉框支持 GitHub / Gitee 双源切换，默认 GitHub
   - 保留移植工具同款橙色刷机风险提示
   - 圆形蒙板窗口图标（多尺寸 ICO，圆外透明）
 
 - **8. 自检 / Self-test**
   - 15 项合成样本自检：AES 双后端、brotli、sdat2img、fsutil、单实例锁、
-    格式识别、OZIP/OFP/OPS 解密、CLI 契约、更新未配置行为、GUI 冒烟与端到端
+    格式识别、OZIP/OFP/OPS 解密、CLI 契约、更新源配置、GUI 冒烟与端到端
 
 <a name="formats"></a>
 ## 支持格式 / Supported Formats
@@ -119,7 +120,7 @@ oppo-firmware-decrypt/
 ├─ README.md                 本文件（仓库说明）
 ├─ LICENSE                   GPL-3.0 全文
 ├─ .gitignore                运行产物 / 缓存忽略规则
-├─ latest_version.txt        更新检查版本文件（更新地址暂空）
+├─ latest_version.txt        更新检查版本文件（GitHub Release 下载地址）
 └─ oppo-firmware-decrypt/    源码本体（发行 zip 的根目录即此目录）
    ├─ main.py                GUI 入口
    ├─ decrypt_cli.py         CLI 入口（外部壳调用）
@@ -128,7 +129,7 @@ oppo-firmware-decrypt/
    │  ├─ gui.py              轻量 Tk 界面（Per-Monitor V2 DPI 感知）
    │  ├─ singleton.py        单实例锁（跳转已运行窗口 / 清除残留锁）
    │  ├─ icons/              窗口图标 app.ico/app.png + GitHub / Gitee 图标
-   │  ├─ updater.py          更新检查（地址为空，默认关闭）
+   │  ├─ updater.py          更新检查（GitHub / Gitee 双源，Gitee 仓库待建）
    │  ├─ common.py           CLI / GUI 共用逻辑
    │  ├─ version.py          版本号唯一真源
    │  ├─ core/               解密核心（OFP / OZIP / OPS、brotli、sdat2img、pyaes）
@@ -163,6 +164,9 @@ run.bat          # 或：python main.py
 2. 选择输出类型：img（默认）或 zip（仅 OZIP）
 3. 选择输出目录；留空则输出到固件同级 `<固件名>_decrypted/`
 4. 点击「开始解密」，右侧日志实时显示进度
+
+底部「检查更新」支持 GitHub / Gitee 双源切换（「更新源」下拉框，默认 GitHub）；
+Gitee 仓库创建前该源不可用，先用 GitHub 源即可。
 
 ![主界面](oppo-firmware-decrypt/docs/gui-main.png)
 
@@ -229,18 +233,21 @@ python decrypt_cli.py --version
 <a name="update"></a>
 ## 更新检查 / Update Check
 
-更新模块复用自 mtk-garbage-porttool，但当前 **`UPDATE_ENABLED = False`、更新地址全部留空**。
-点击「检查更新」只提示「更新源尚未配置」，不会发出任何网络请求。
-
-GitHub 仓库已创建；待发布 Release 资产后，填写 `latest_version.txt` 的 `update_url_1` /
-`update_url_2`，并在 `app/updater.py` 的 `UPDATE_SOURCES` 填入 raw / api / contents_api 地址，
-把开关改为 `True` 即可启用。启用前不会产生任何后台网络请求。
+更新模块复用自 mtk-garbage-porttool：网络请求、`latest_version.txt` 解析、发行说明 markdown
+渲染与 GUI 弹窗全部保留。当前 **`UPDATE_ENABLED = True`，GitHub 更新源已配置**：
+`raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
+`contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 已指向
+GitHub `1.0.0.001` Release 资产，`update_url_2` 已按 Gitee 同版本路径预留。GUI 底部
+「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；Gitee 仓库尚未创建，建仓前该源不可用。
 
 <a name="release"></a>
 ## 发行包 / Release Package
 
 发行资产命名：`oppo-firmware-decrypt-1.0.0.001.zip`，zip 内根目录为 `oppo-firmware-decrypt/`，
-解压后可直接 `run.bat` 启动。打包命令：
+解压后可直接 `run.bat` 启动。当前发布页：
+[`1.0.0.001`](https://github.com/LJY-33684/oppo-firmware-decrypt/releases/tag/1.0.0.001)。
+
+打包命令：
 
 ```bash
 cd oppo-firmware-decrypt
@@ -273,8 +280,9 @@ A：未指定时在固件同目录 `<固件名>_decrypted/`；目录已存在且
 **Q：为什么选择 zip 但 OFP / OPS 仍输出 img？**
 A：只有 OZIP 有卡刷包形态；OFP / OPS 是分区镜像包，选择 zip 会提示后按 img 处理。
 
-**Q：检查更新提示“更新源尚未配置”？**
-A：这是预期行为。更新地址暂未填写，开关为关闭状态，不会发出网络请求。
+**Q：检查更新提示网络错误 / 超时？**
+A：更新检查现在支持 GitHub / Gitee 双源，默认 GitHub。若网络无法访问对应站点，会提示网络错误或超时；
+Gitee 地址已预留，但仓库尚未创建，建仓前切换过去会失败，先用 GitHub 源即可。
 
 **Q：重复启动提示已有实例，但我确认没开？**
 A：上次进程可能被强制结束留下状态锁。点「清除状态锁」继续，或直接删除源码根目录
@@ -303,7 +311,7 @@ risk; the developers assume no responsibility for damage, data loss, or warranty
   - 单实例锁：跳转已运行窗口 / 清除残留锁 / 强杀残留自动接管
   - 底部 GitHub / Gitee 图标与橙色刷机风险提示
   - 圆形蒙板多尺寸窗口 ICO
-  - 更新检查框架复用，地址留空、默认关闭
+  - 更新检查接入 GitHub Release，预先填好 Gitee 同版本地址，GUI 支持双源切换
 
 <a name="contact"></a>
 ## 联系 / Contact

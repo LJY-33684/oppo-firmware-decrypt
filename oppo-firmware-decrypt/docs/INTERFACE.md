@@ -81,4 +81,4 @@ int code = p.waitFor();   // 0/1/2 按上表判断
 
 - 版本号唯一真源为 `app/version.py`，`--version` 与 GUI 标题一致。
 - 本接口为对外契约：新增功能优先以可选参数加入，不改变既有参数名、语义与退出码含义。
-- 更新检查不在 CLI 契约内（GUI 专用，且当前未配置更新源）。
+- 更新检查不在 CLI 契约内（GUI 专用；GitHub / Gitee 双源，Gitee 仓库待创建）。
