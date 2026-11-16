@@ -38,17 +38,18 @@ TEMP_SUBDIR = '.oppo_decrypt_tmp'
 # AES 后端：openssl（快）优先，pyaes（纯 Python）兜底
 # ============================================================
 def _find_openssl():
-    """探测可用 openssl：工具 bin/ 目录（逐个「存在+可运行」体检）→ 系统 PATH。
+    """探测可用 openssl：按当前平台选择工具 bin/ 组件（体检可运行）→ 系统 PATH。
 
-    #90 修复：候选组件（如 Windows 专用 openssl.exe 在 Linux 上）存在但不可运行
-    时，不能直接 return None，必须继续尝试下一个候选，全部失败后再回退系统 PATH，
-    否则 Linux/跨平台环境会静默降级 pyaes（大包解密慢约 229 倍）。
+    平台过滤很关键：WSL 默认启用 Windows 互操作，Linux 下也能直接执行
+    bin/win/x86_64/openssl.exe；若不按平台筛选，Linux 会误把 Windows 组件当成
+    可用后端，随包的 Linux 静态 OpenSSL 反而永远轮不到。因此 Windows 只试
+    openssl.exe，其它平台只试 bin/linux/x86_64/openssl。
     """
     root = Path(__file__).resolve().parent.parent
-    candidates = [
-        root / 'bin' / 'win' / 'x86_64' / 'openssl.exe',
-        root / 'bin' / 'linux' / 'x86_64' / 'openssl',
-    ]
+    if sys.platform.startswith('win'):
+        candidates = [root / 'bin' / 'win' / 'x86_64' / 'openssl.exe']
+    else:
+        candidates = [root / 'bin' / 'linux' / 'x86_64' / 'openssl']
     for c in candidates:
         if not c.exists():
             continue
@@ -987,9 +988,10 @@ def decrypt(path, outdir, log=None, out_type='img'):
     emit(f"【解密】输出类型：{'zip 卡刷包（不展开）' if out_type == 'zip' else 'img 镜像'}")
     if _OPENSSL is None:
         if sys.platform.startswith('linux'):
-            emit("【提示】未检测到 OpenSSL 命令，已自动使用内置 pyaes（纯Python）解密；"
-                 "3GB 级大包会非常慢。Linux 请安装 openssl 并确保在 PATH 中："
-                 "Debian/Ubuntu: sudo apt install openssl，CentOS/RHEL: sudo dnf install openssl")
+            emit("【提示】未检测到随包/系统 OpenSSL，已自动使用内置 pyaes（纯Python）解密；"
+                 "3GB 级大包会非常慢。请确认 app/bin/linux/x86_64/openssl 有可执行权限；"
+                 "也可安装系统 openssl：Debian/Ubuntu: sudo apt install openssl，"
+                 "CentOS/RHEL: sudo dnf install openssl")
         else:
             emit("【提示】未检测到 OpenSSL 加速组件，已自动使用内置 pyaes（纯Python）解密；"
                  "大包会明显变慢。如需加速可双击运行 app\\tools 下的「获取openssl加速组件.bat」（可选）")

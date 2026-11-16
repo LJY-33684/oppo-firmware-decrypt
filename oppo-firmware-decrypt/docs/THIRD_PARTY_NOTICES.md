@@ -42,18 +42,26 @@
 
 ## 4. OpenSSL（AES 解密加速组件）
 
-- 位置：`app/bin/win/x86_64/`：`openssl.exe` + `libeay32.dll` + `ssleay32.dll`
-- 版本：1.0.2u（20 Dec 2019，Windows x64 构建）
-- 版权：Copyright (c) 1998-2019 The OpenSSL Project（OpenSSL License + SSLeay License，双许可）
+- Windows 位置：`app/bin/win/x86_64/`：`openssl.exe` + `libeay32.dll` + `ssleay32.dll`
+- Windows 版本：1.0.2u（20 Dec 2019，Windows x64 构建）
+- Linux 位置：`app/bin/linux/x86_64/openssl`
+- Linux 版本：OpenSSL 3.5.5（27 Jan 2026，x86_64 静态单文件构建，来源于官方源码）
+- 版权：Copyright (c) 1998-2026 The OpenSSL Project
+- 许可：Windows 1.0.2u 为 OpenSSL License + SSLeay License 双许可；
+  Linux 3.5.5 为 Apache License 2.0
 - 用途：OFP / OZIP AES 解密的首选加速后端；未检测到时自动回落到内置纯 Python 的 `app/core/pyaes/`
-- 许可原文：`app/licenses/OpenSSL-LICENSE.txt`（OpenSSL License + SSLeay License 全文）
+- 许可原文：
+  - `app/licenses/OpenSSL-LICENSE.txt`（Windows 1.0.2u 的 OpenSSL License + SSLeay License 全文）
+  - `app/licenses/OpenSSL-3-LICENSE.txt`（Linux 3.5.5 的 Apache License 2.0 全文）
 - 来源：<https://www.openssl.org/source/>（Windows 构建自 Shining Light Productions，
-  <https://slproweb.com/products/Win32OpenSSL.html>）
+  <https://slproweb.com/products/Win32OpenSSL.html>；Linux 由本项目从官方 3.5.5 源码静态编译）
 - 注 1：上游 mtk-garbage-porttool 把 `cygwin1.dll` 也算作本组件的一部分；本工具实测
   `openssl.exe` 的 PE 导入表只依赖 `SSLEAY32.dll`、`LIBEAY32.dll`、`WS2_32.dll`、`msvcrt.dll`、
   `KERNEL32.dll`，因此只随包分发上述三个文件，不再附带 `cygwin1.dll`。
-- 注 2：OpenSSL 许可与本项目采用的 GPL-3.0 存在历史兼容性争议（广告条款），本组件随包分发仅为
-  功能加速；因存在纯 Python 兜底（pyaes），使用方若需纯 GPL 合规分发可自行删除本组件，功能不受影响。
+- 注 2：Windows OpenSSL 1.0.2u 许可与本项目采用的 GPL-3.0 存在历史兼容性争议（广告条款），
+  本组件随包分发仅为功能加速；因存在纯 Python 兜底（pyaes），使用方若需纯 GPL 合规分发可自行删除。
+- 注 3：Linux 静态版只启用 AES 相关基础算法，`enc` 子命令不依赖系统 `libcrypto/libssl`；
+  静态链接的 glibc 可能对 NSS / DNS 等功能有限制，但本工具只用于本地 AES 解密，不涉及网络。
 
 ## 5. 窗口图标与 GitHub / Gitee 图标
 

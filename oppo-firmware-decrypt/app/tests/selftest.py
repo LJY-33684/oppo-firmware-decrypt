@@ -81,6 +81,11 @@ def t_aes():
     assert dec == bytes(plain), 'aes_ecb_decrypt 与 pyaes 加密结果不一致'
     py_dec = pyaes.AESModeOfOperationECB(key).decrypt(ct)
     assert py_dec == bytes(plain), 'pyaes ECB 自身解密不一致'
+    if sys.platform.startswith('linux'):
+        bundled = (ROOT / 'app' / 'bin' / 'linux' / 'x86_64' / 'openssl').resolve()
+        assert bundled.exists(), 'Linux 随包 OpenSSL 不存在'
+        assert Path(od._OPENSSL or '').resolve() == bundled, \
+            f'Linux AES 未优先使用随包 OpenSSL：{od._OPENSSL}'
 
     iv = bytes.fromhex('2bf515b3a9737835' * 2)
     enc = pyaes.Encrypter(pyaes.AESModeOfOperationCFB(key, iv, segment_size=16))
@@ -355,7 +360,7 @@ def t_cli():
     cli = ROOT / 'decrypt_cli.py'
     r = subprocess.run([sys.executable, str(cli), '--version'],
                        capture_output=True, text=True, encoding='utf-8')
-    assert r.returncode == 0 and r.stdout.strip() == '1.0.0.002', r.stdout
+    assert r.returncode == 0 and r.stdout.strip() == '1.0.0.003', r.stdout
     ver = r.stdout.strip()
 
     r2 = subprocess.run([sys.executable, str(cli), 'decrypt', '--input',

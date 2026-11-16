@@ -3,12 +3,12 @@
 从 [mtk-garbage-porttool](https://github.com/LJY-33684/mtk-garbage-porttool-master) 中抽出的独立解密工具：
 只做一件事 —— 把 OPPO 系固件解开，得到分区镜像或标准卡刷包。
 
-- 版本：**1.0.0.002**
+- 版本：**1.0.0.003**
 - 仓库：https://github.com/LJY-33684/oppo-firmware-decrypt
 - 支持格式：**OFP（MTK）/ OZIP（Realme / OPPO）/ OPS（OnePlus）**
 - 平台：Windows x64（主）/ Linux x86_64（GUI + CLI）
-- Linux：需系统 `openssl`（AES，发行包暂未内置；缺失会回退 `pyaes`，3GB 级大包会非常慢，建议先安装）+ 随包 `app/bin/linux/x86_64/brotli`（`.new.dat.br`）
-- Python：3.10+（已在 3.15 上完成 15/15 自检；Linux 3.12 核心 13/13 通过，GUI 需真实桌面）
+- Linux：随包 `app/bin/linux/x86_64/openssl`（OpenSSL 3.5.5 静态 x86_64，AES 加速）+ 随包 `app/bin/linux/x86_64/brotli`（`.new.dat.br`）；不再要求系统 `openssl`，缺失时才回退 `pyaes`
+- Python：3.10+（已在 3.15 上完成 15/15 自检；Linux 3.14 核心 13/13 通过，WSLg 真实显示下 GUI 15/15 通过）
 - 许可：GPL-3.0（解密算法源自 B. Kerler 的 MIT 组件，见 `docs/THIRD_PARTY_NOTICES.md`）
 
 ## 快速开始
@@ -90,7 +90,7 @@ oppo-firmware-decrypt/（源码子目录）
 │  │  ├─ pyaes/             纯 Python AES 兜底
 │  │  └─ _vendor_brotli/    内置 brotli Python 库（cp312–cp315 × win/manylinux）
 │  ├─ bin/win/x86_64/       Windows openssl.exe + libeay32.dll + ssleay32.dll + brotli.exe
-│  ├─ bin/linux/x86_64/     Linux brotli 1.1.0（动态链接 glibc/libc/libm，需兼容的 glibc）
+│  ├─ bin/linux/x86_64/     Linux openssl 3.5.5（静态单文件）+ brotli 1.1.0（动态链接 glibc/libc/libm）
 │  ├─ licenses/             OpenSSL / Brotli 许可原文
 │  ├─ tests/selftest.py     合成样本自检（15 项）
 │  └─ tools/                构建与组件脚本
@@ -106,7 +106,7 @@ oppo-firmware-decrypt/（源码子目录）
 
 | 用途 | 优先顺序 | 说明 |
 |---|---|---|
-| AES | Windows：`app/bin/win/x86_64/openssl.exe` → 系统 `openssl` → 内置 `pyaes`；Linux：`app/bin/linux/x86_64/openssl`（如存在）→ 系统 `openssl` → 内置 `pyaes` | openssl 快很多；Linux 发行包未内置 OpenSSL，缺失时会回退 pyaes，3GB 级大包会非常慢，日志会明确提示 |
+| AES | Windows：`app/bin/win/x86_64/openssl.exe` → 系统 `openssl` → 内置 `pyaes`；Linux：`app/bin/linux/x86_64/openssl`（随包静态版）→ 系统 `openssl` → 内置 `pyaes` | openssl 快很多；Linux 已内置 OpenSSL 3.5.5 静态版，缺失时才回退 pyaes |
 | brotli（仅 img 模式解 `.new.dat.br`） | 自带 `brotli` → 系统 PATH `brotli` → 内置 vendor 库 → `pip install brotli` / `brotlicffi` | 全缺失时只影响 `.br` 解压，`.br` 原文件保留，boot/firmware 等镜像不受影响 |
 
 `openssl.exe` 实测只需 `libeay32.dll` + `ssleay32.dll` 两个依赖（PE 导入表已核对），
@@ -133,7 +133,7 @@ CLI 契约、更新源配置、GUI 构建与端到端解密。
 发行说明 markdown 渲染、GUI 弹窗全部保留。**当前 `UPDATE_ENABLED = True`，GitHub 更新源已配置**：
 `raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
 `contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 已指向
-GitHub `1.0.0.002` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
+GitHub `1.0.0.003` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
 「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；两个仓库与发行版均已创建，双源可用。
 
 ## 已知边界
@@ -142,9 +142,11 @@ GitHub `1.0.0.002` Release 资产，`update_url_2` 指向 Gitee 同版本资产�
   合成样本只能证明算法链路，不覆盖各家机型的密钥表差异。
 - OFP 解密沿用上游实现：每个分区以「加密首块（`enclength > 0`）+ 明文余下部分」布局读取，
   与真实 OFP 一致；若遇到首块未加密的私有打包，需另做适配。
-- 内置 `openssl.exe` 为 1.0.2u（Windows x64 构建），仅用于解密加速；
+- 内置 Windows `openssl.exe` 为 1.0.2u（Windows x64 构建），仅用于解密加速；
   其许可与 GPL-3.0 存在历史争议，介意可删除该组件，工具会自动降级 pyaes。
-- Linux 下 `app/bin/win` 不可用：AES 使用系统 `openssl`（发行包未内置，请确保在 PATH 中），brotli 使用随包 `app/bin/linux/x86_64/brotli`（动态链接，需 glibc）。
+- 内置 Linux `openssl` 为 OpenSSL 3.5.5 静态 x86_64（Apache-2.0），仅用于 AES 加速；
+  许可原文见 `app/licenses/OpenSSL-3-LICENSE.txt`，删掉后会自动回退系统 `openssl` / pyaes。
+- Linux 下 `app/bin/win` 不可用：AES 优先使用随包 `app/bin/linux/x86_64/openssl`（静态版），brotli 使用随包 `app/bin/linux/x86_64/brotli`（动态链接，需 glibc）。
 - Linux 无图形环境时不能启动 GUI；自检默认跳过两项 GUI 测试（`OPPO_SKIP_GUI=1` 可强制跳过；确认真实桌面后用 `OPPO_TEST_GUI=1` 启用），或用 `./run.sh --cli` 运行 CLI。
 - GUI 只暴露解密必需项，不含移植方案表、自动更新弹窗；单实例锁与仓库图标已保留。
 
