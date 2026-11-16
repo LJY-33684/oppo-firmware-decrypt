@@ -75,7 +75,7 @@ _OPENSSL = _find_openssl()
 
 def backend_name():
     """当前 AES 后端名称（供日志显示）。"""
-    return 'openssl（加速）' if _OPENSSL else 'pyaes（纯Python）'
+    return 'openssl（加速）' if _OPENSSL else 'pyaes（纯Python，大包很慢）'
 
 
 def _openssl_decrypt(mode, key, iv, data):
@@ -987,11 +987,12 @@ def decrypt(path, outdir, log=None, out_type='img'):
     emit(f"【解密】输出类型：{'zip 卡刷包（不展开）' if out_type == 'zip' else 'img 镜像'}")
     if _OPENSSL is None:
         if sys.platform.startswith('linux'):
-            emit("【提示】未检测到 OpenSSL 命令，已自动使用内置 pyaes（纯Python）解密（功能正常，速度较慢）；"
-                 "Linux 可安装系统 openssl 提速：Debian/Ubuntu: apt install openssl，CentOS: dnf install openssl")
+            emit("【提示】未检测到 OpenSSL 命令，已自动使用内置 pyaes（纯Python）解密；"
+                 "3GB 级大包会非常慢。Linux 请安装 openssl 并确保在 PATH 中："
+                 "Debian/Ubuntu: sudo apt install openssl，CentOS/RHEL: sudo dnf install openssl")
         else:
-            emit("【提示】未检测到 OpenSSL 加速组件，已自动使用内置 pyaes（纯Python）解密（功能正常，速度较慢）；"
-                 "如需加速可双击运行 app\\tools 下的「获取openssl加速组件.bat」（可选）")
+            emit("【提示】未检测到 OpenSSL 加速组件，已自动使用内置 pyaes（纯Python）解密；"
+                 "大包会明显变慢。如需加速可双击运行 app\\tools 下的「获取openssl加速组件.bat」（可选）")
     ok = False
     try:
         Path(outdir).mkdir(parents=True, exist_ok=True)

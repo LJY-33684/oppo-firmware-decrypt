@@ -71,9 +71,9 @@ GUI and CLI, and never modifies the source firmware.
 
 - **3. 随包组件 / Bundled backends**
   - Windows 自带 `openssl.exe`（AES 加速）与 `brotli.exe`（`.new.dat.br` 解压）
-  - Linux 自带 `app/bin/linux/x86_64/brotli`（brotli 1.1.0，仅依赖 libc/libm），AES 使用系统 `openssl`
+  - Linux 自带 `app/bin/linux/x86_64/brotli`（brotli 1.1.0，动态链接 glibc/libc/libm，需兼容 glibc），AES 使用系统 `openssl`
   - openssl 缺失时自动降级 `pyaes`；brotli 缺失时自动回落到 vendored Python 库
-  - Windows 无需额外安装依赖；Linux 只需系统 `openssl`（常见发行版默认自带）
+  - Windows 无需额外安装依赖；Linux 需确保系统 `openssl` 在 PATH 中（发行包未内置；缺失时大包解密会非常慢）
 
 - **4. 图形界面 / GUI**
   - 选固件 → 选输出类型 → 选输出目录 → 开始解密，四步操作
@@ -100,6 +100,7 @@ GUI and CLI, and never modifies the source firmware.
 - **8. 自检 / Self-test**
   - 15 项合成样本自检：AES 双后端、brotli、sdat2img、fsutil、单实例锁、
     格式识别、OZIP/OFP/OPS 解密、CLI 契约、更新源配置、GUI 冒烟与端到端
+  - Linux 默认跳过 GUI 两项（避免远程 X 的 xcb 进程级 abort）；确认真实桌面后设 `OPPO_TEST_GUI=1` 启用
 
 <a name="formats"></a>
 ## 支持格式 / Supported Formats
@@ -150,7 +151,7 @@ oppo-firmware-decrypt/
 ## 环境要求 / Requirements
 
 - **Windows x64**：主支持平台，Python 3.10+，需带 Tcl/Tk（官方 Python 默认包含）
-- **Linux x86_64**：支持 GUI / CLI，Python 3.10+，需带 Tcl/Tk（Debian/Ubuntu 装 `python3-tk`）；AES 使用系统 `openssl`，brotli 使用随包 `app/bin/linux/x86_64/brotli`
+- **Linux x86_64**：支持 GUI / CLI，Python 3.10+，需带 Tcl/Tk（Debian/Ubuntu 装 `python3-tk`）；AES 使用系统 `openssl`（发行包未内置，需确保在 PATH 中），brotli 使用随包 `app/bin/linux/x86_64/brotli`（动态链接，需 glibc）
 - Linux 桌面用 `./run.sh`；无图形环境时用 `./run.sh --cli` 或直接调用 `decrypt_cli.py`
 - 已在 Python 3.15 上完成 15/15 自检；Linux Python 3.12 核心 13/13 通过（无头环境 GUI 需真实桌面验证）
 - 若默认 `python` 是精简运行时（缺 `init.tcl`），`run.bat` 会自动尝试 `py -3` 与官方 Python 3.15
@@ -222,8 +223,8 @@ python decrypt_cli.py --version
 
 | 用途 | 优先顺序 | 说明 |
 |---|---|---|
-| AES | `app/bin/win/x86_64/openssl.exe` → 系统 `openssl` → 内置 `pyaes` | openssl 快很多；缺失时自动降级，功能不变、速度变慢 |
-| Brotli | `app/bin/win/x86_64/brotli.exe` → vendored Python 库 → 系统 `brotli` | `.new.dat.br` 解压；缺失时原样保留并提示 |
+| AES | Windows：`app/bin/win/x86_64/openssl.exe` → 系统 `openssl` → 内置 `pyaes`；Linux：`app/bin/linux/x86_64/openssl`（如存在）→ 系统 `openssl` → 内置 `pyaes` | openssl 快很多；Linux 发行包未内置 OpenSSL，缺失时回退 pyaes，3GB 级大包会非常慢 |
+| Brotli | 自带 `brotli` → 系统 PATH `brotli` → vendored Python 库 → `pip install brotli` / `brotlicffi` | `.new.dat.br` 解压；缺失时原样保留并提示 |
 | sdat2img | 内置 `app/core/sdat2img.py` | `new.dat + transfer.list → img` |
 
 <a name="singleton"></a>
@@ -271,7 +272,8 @@ python app/tools/build_zip.py
 - 合成样本只能证明算法链路，不能覆盖各家机型密钥表差异；真实 OPS 大包尚未做端到端验证。
 - OFP 沿用上游实现：按「加密首块（`enclength > 0`）+ 明文余下部分」读取；私有打包布局可能需适配。
 - 内置 `openssl.exe` 为 1.0.2u，仅用于加速；其许可与 GPL-3.0 存在历史争议，可删除并回落到 pyaes。
-- Linux 下 `app/bin/win` 不可用：AES 使用系统 `openssl`，brotli 使用随包 `app/bin/linux/x86_64/brotli`（x86_64）。
+- Windows `brotli.exe` 来自 `brotli-x64-windows-static.zip`，但 PE 导入表仍含 `VCRUNTIME140.dll` 与 Universal CRT API-set，仍需系统 VC 运行库；缺失时会回落到内置 Python 库。
+- Linux 下 `app/bin/win` 不可用：AES 使用系统 `openssl`（发行包未内置，需确保在 PATH 中），brotli 使用随包 `app/bin/linux/x86_64/brotli`（x86_64，动态链接 glibc）。
 - Linux 无图形环境时不能启动 GUI；请用 `./run.sh --cli` 或 `decrypt_cli.py`，并安装 `python3-tk` 后使用桌面。
 - GUI 只暴露解密必需项，不含移植方案表、自动更新弹窗；单实例锁、仓库图标与风险提示已保留。
 
@@ -313,10 +315,10 @@ risk; the developers assume no responsibility for damage, data loss, or warranty
 
 - **1.0.0.002**（Linux 适配 / Linux support）
   - 新增 Linux `run.sh` 启动脚本：自动选择 Python 3.10+、检测 Tk，无显示环境时引导 CLI
-  - 新增 Linux x86_64 `brotli` 1.1.0（随包，仅依赖 libc/libm），覆盖 Python 3.10/3.11 等无 vendor 库的解释器
+  - 新增 Linux x86_64 `brotli` 1.1.0（随包，动态链接 glibc/libc/libm，需兼容 glibc），覆盖 Python 3.10/3.11 等无 vendor 库的解释器
   - Linux GUI：`xdg-open` / `gio` / `kde-open` 打开输出目录，Windows 字体硬编码改为平台回退
   - 打包脚本为 `run.sh` 与 Linux `brotli` 写入 755 可执行位，解压即用
-  - Linux 实测核心 13/13 通过；GUI 无头自检可用 `OPPO_SKIP_GUI=1` 跳过
+  - Linux 实测核心 13/13 通过；GUI 自检在 Linux 默认跳过（确认真实桌面后设 `OPPO_TEST_GUI=1`），`OPPO_SKIP_GUI=1` 可强制跳过
 - **1.0.0.001**（首个独立版本 / initial standalone release）
   - 从 mtk-garbage-porttool 抽出 OPPO 解密模块，保留 OFP / OZIP / OPS 三格式
   - 新增独立 GUI、稳定 CLI 与 15 项合成样本自检

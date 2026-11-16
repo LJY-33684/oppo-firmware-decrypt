@@ -7,9 +7,9 @@ brotli 没有可用的纯 Python 实现（唯一项目无许可证且极慢）�
 openssl 加速组件一致的多后端策略，探测顺序依次为
   1. 工具自带 brotli 二进制（Windows：bin/win/x86_64/brotli.exe；
      Linux：bin/linux/x86_64/brotli，随包分发，x86_64）
-  2. 工具内置 vendor brotli 库（app/core/_vendor_brotli/，按解释器 ABI 匹配
+  2. 系统 PATH 中的 brotli 命令（Linux 发行版 apt/dnf 安装后即有）
+  3. 工具内置 vendor brotli 库（app/core/_vendor_brotli/，按解释器 ABI 匹配
      cp312/cp313/cp314/cp315 × win/linux，开箱即用，无需 pip 安装）
-  3. 系统 PATH 中的 brotli 命令（Linux 发行版 apt/dnf 安装后即有）
   4. Python 的 brotli 库（pip install brotli，跨平台）
   5. Python 的 brotlicffi 库（pip install brotlicffi，跨平台）
 均未命中时抛出 BrotliUnavailable 并在日志中给出明确安装提示（不静默降级）。

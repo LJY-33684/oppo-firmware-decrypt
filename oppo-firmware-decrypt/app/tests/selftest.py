@@ -17,6 +17,8 @@ selftest.py — 环境与解密链路自检（不接触真实固件，全部用�
   11. GUI 端到端解密
 
 用法：python app/tests/selftest.py
+  OPPO_SKIP_GUI=1  强制跳过 GUI 两项（无头环境）
+  OPPO_TEST_GUI=1  Linux 下显式启用 GUI 两项（仅确认真实桌面可用时）
 退出码：0 全部通过；1 存在失败项
 """
 import os
@@ -40,6 +42,9 @@ from app.core import sdat2img             # noqa: E402
 RESULTS = []
 TMP = Path(tempfile.mkdtemp(prefix='oppo_dec_selftest_'))
 SKIP_GUI = os.environ.get('OPPO_SKIP_GUI') == '1'
+# Linux 默认跳过 GUI：远程 X / 部分虚拟机环境会在 Tk 控件创建时触发
+# xcb 断言并进程级 abort，try/except 无法捕获；确认真实桌面可用后显式 opt-in。
+GUI_OPT_IN = os.environ.get('OPPO_TEST_GUI') == '1'
 
 
 class Skip(Exception):
@@ -468,10 +473,16 @@ def main():
     check('OPS → 分区导出', t_ops)
     check('CLI 契约', t_cli)
     check('GitHub / Gitee 更新源配置', t_update)
+    gui_skip_reason = None
     if SKIP_GUI:
+        gui_skip_reason = 'OPPO_SKIP_GUI=1'
+    elif sys.platform.startswith('linux') and not GUI_OPT_IN:
+        gui_skip_reason = ('Linux 默认跳过 GUI（远程 X 可能 xcb abort；'
+                           '确认真实桌面后设 OPPO_TEST_GUI=1）')
+    if gui_skip_reason:
         for name in ('GUI 冒烟', 'GUI 端到端解密'):
-            RESULTS.append((None, name, 'OPPO_SKIP_GUI=1'))
-            print(f'[SKIP] {name} — OPPO_SKIP_GUI=1')
+            RESULTS.append((None, name, gui_skip_reason))
+            print(f'[SKIP] {name} — {gui_skip_reason}')
     else:
         check('GUI 冒烟', t_gui)
         check('GUI 端到端解密', t_gui_decrypt)
