@@ -1,0 +1,36 @@
+name: ARM64 selftest
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'oppo-firmware-decrypt/app/**'
+      - 'oppo-firmware-decrypt/decrypt_cli.py'
+      - 'oppo-firmware-decrypt/main.py'
+      - '.github/workflows/arm64-selftest.yml'
+
+jobs:
+  arm64:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show ARM64 environment
+        run: |
+          uname -a
+          python3 --version
+          openssl version
+
+      - name: Install brotli CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends brotli
+
+      - name: Run OPPO selftest on ARM64
+        working-directory: oppo-firmware-decrypt
+        env:
+          OPPO_SKIP_GUI: 1
+        run: |
+          chmod +x app/bin/linux/x86_64/openssl app/bin/linux/x86_64/brotli || true
+          python3 app/tests/selftest.py

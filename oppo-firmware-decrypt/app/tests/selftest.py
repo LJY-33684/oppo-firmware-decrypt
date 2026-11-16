@@ -22,6 +22,7 @@ selftest.py — 环境与解密链路自检（不接触真实固件，全部用�
 退出码：0 全部通过；1 存在失败项
 """
 import os
+import platform
 import shutil
 import struct
 import subprocess
@@ -81,7 +82,7 @@ def t_aes():
     assert dec == bytes(plain), 'aes_ecb_decrypt 与 pyaes 加密结果不一致'
     py_dec = pyaes.AESModeOfOperationECB(key).decrypt(ct)
     assert py_dec == bytes(plain), 'pyaes ECB 自身解密不一致'
-    if sys.platform.startswith('linux'):
+    if sys.platform.startswith('linux') and platform.machine().lower() in ('x86_64', 'amd64'):
         bundled = (ROOT / 'app' / 'bin' / 'linux' / 'x86_64' / 'openssl').resolve()
         assert bundled.exists(), 'Linux 随包 OpenSSL 不存在'
         assert Path(od._OPENSSL or '').resolve() == bundled, \
