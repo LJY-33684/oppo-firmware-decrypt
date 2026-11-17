@@ -27,6 +27,17 @@ jobs:
           python --version
           bash oppo-firmware-decrypt/app/tools/build_brotli_arm64_wheel.sh "$RUNNER_TEMP/brotli-cp315-dist"
 
+      - name: Import and decompress smoke test
+        run: |
+          python -m pip install --no-deps "$RUNNER_TEMP/brotli-cp315-dist/"*.whl
+          python - <<'PY'
+          import brotli
+          data = b'OPPO firmware decrypt ARM64 cp315 smoke test' * 1024
+          packed = brotli.compress(data)
+          assert brotli.decompress(packed) == data
+          print('brotli cp315 aarch64 import/decompress OK')
+          PY
+
       - name: Show wheel and repair tag if possible
         run: |
           ls -l "$RUNNER_TEMP/brotli-cp315-dist"
