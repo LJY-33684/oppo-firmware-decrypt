@@ -88,9 +88,10 @@ def t_aes():
         assert Path(od._OPENSSL or '').resolve() == bundled, \
             f'Linux AES 未优先使用随包 OpenSSL：{od._OPENSSL}'
     elif sys.platform.startswith('linux') and platform.machine().lower() in ('aarch64', 'arm64', 'armv8', 'arm64v8'):
-        assert od._OPENSSL, 'ARM64 Linux 未检测到系统 OpenSSL，无法启用 AES 加速'
-        assert 'linux/x86_64' not in (od._OPENSSL or '').replace('\\', '/'), \
-            f'ARM64 不应使用 x86_64 随包 OpenSSL：{od._OPENSSL}'
+        bundled = (ROOT / 'app' / 'bin' / 'linux' / 'arm64' / 'openssl').resolve()
+        assert bundled.exists(), 'ARM64 随包 OpenSSL 不存在'
+        assert Path(od._OPENSSL or '').resolve() == bundled, \
+            f'ARM64 AES 未优先使用随包 OpenSSL：{od._OPENSSL}'
 
     iv = bytes.fromhex('2bf515b3a9737835' * 2)
     enc = pyaes.Encrypter(pyaes.AESModeOfOperationCFB(key, iv, segment_size=16))
@@ -106,7 +107,11 @@ def t_brotli():
     backend = brotli.backend_name()
     assert backend != 'none', '未找到任何 brotli 后端'
     if sys.platform.startswith('linux') and platform.machine().lower() in ('aarch64', 'arm64', 'armv8', 'arm64v8'):
-        assert backend != 'bundle-cmd', 'ARM64 不应使用 x86_64 随包 brotli'
+        bundled = (ROOT / 'app' / 'bin' / 'linux' / 'arm64' / 'brotli').resolve()
+        assert bundled.exists(), 'ARM64 随包 brotli 不存在'
+        assert backend == 'bundle-cmd', f'ARM64 未优先使用随包 brotli：{backend}'
+        assert Path(brotli._TOOL_BIN).resolve() == bundled, \
+            f'ARM64 brotli 路径异常：{brotli._TOOL_BIN}'
     data = (b'OPPO firmware decrypt selftest\n' * 4096)
     src = TMP / 'sample.txt'
     br = TMP / 'sample.txt.br'
@@ -367,7 +372,7 @@ def t_cli():
     cli = ROOT / 'decrypt_cli.py'
     r = subprocess.run([sys.executable, str(cli), '--version'],
                        capture_output=True, text=True, encoding='utf-8')
-    assert r.returncode == 0 and r.stdout.strip() == '1.0.0.003', r.stdout
+    assert r.returncode == 0 and r.stdout.strip() == '1.0.0.005', r.stdout
     ver = r.stdout.strip()
 
     r2 = subprocess.run([sys.executable, str(cli), 'decrypt', '--input',

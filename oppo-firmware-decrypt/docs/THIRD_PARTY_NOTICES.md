@@ -32,9 +32,10 @@
 
 - 位置：
   - Windows 二进制：`app/bin/win/x86_64/brotli.exe`（Google 官方 Windows 静态版，随包分发）
+  - Linux 二进制：`app/bin/linux/x86_64/brotli`、`app/bin/linux/arm64/brotli`（官方源码构建，随包分发）
   - Python 库：`app/core/_vendor_brotli/`（官方 PyPI wheel 解包，cp312 / cp313 / cp314 / cp315 ×
     Windows / manylinux，按解释器 ABI 自动匹配；各子目录保留 wheel 原始 `dist-info` 许可文件）
-- 版本：1.2.0
+- 版本：Windows / Linux CLI 二进制 1.1.0；Python 库 1.2.0
 - 版权：Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors（MIT License）
 - 用途：OZIP 以 img 模式输出时解压 `system/vendor` 等分区的 `.new.dat.br`（Android 9+ 固件）
 - 许可原文：`app/licenses/Brotli-LICENSE.txt`（`app/core/_vendor_brotli/*/dist-info/` 内亦随附 wheel 原始许可）
@@ -44,8 +45,8 @@
 
 - Windows 位置：`app/bin/win/x86_64/`：`openssl.exe` + `libeay32.dll` + `ssleay32.dll`
 - Windows 版本：1.0.2u（20 Dec 2019，Windows x64 构建）
-- Linux 位置：`app/bin/linux/x86_64/openssl`
-- Linux 版本：OpenSSL 3.5.5（27 Jan 2026，x86_64 静态单文件构建，来源于官方源码）
+- Linux 位置：`app/bin/linux/x86_64/openssl`、`app/bin/linux/arm64/openssl`
+- Linux 版本：OpenSSL 3.5.5（27 Jan 2026；x86_64 静态单文件 / aarch64 静态库链接，均来源于官方源码）
 - 版权：Copyright (c) 1998-2026 The OpenSSL Project
 - 许可：Windows 1.0.2u 为 OpenSSL License + SSLeay License 双许可；
   Linux 3.5.5 为 Apache License 2.0
@@ -54,16 +55,17 @@
   - `app/licenses/OpenSSL-LICENSE.txt`（Windows 1.0.2u 的 OpenSSL License + SSLeay License 全文）
   - `app/licenses/OpenSSL-3-LICENSE.txt`（Linux 3.5.5 的 Apache License 2.0 全文）
 - 来源：<https://www.openssl.org/source/>（Windows 构建自 Shining Light Productions，
-  <https://slproweb.com/products/Win32OpenSSL.html>；Linux 由本项目从官方 3.5.5 源码静态编译）
+  <https://slproweb.com/products/Win32OpenSSL.html>；Linux x86_64 / ARM64 由本项目从官方 3.5.5 源码编译）
 - 注 1：上游 mtk-garbage-porttool 把 `cygwin1.dll` 也算作本组件的一部分；本工具实测
   `openssl.exe` 的 PE 导入表只依赖 `SSLEAY32.dll`、`LIBEAY32.dll`、`WS2_32.dll`、`msvcrt.dll`、
   `KERNEL32.dll`，因此只随包分发上述三个文件，不再附带 `cygwin1.dll`。
 - 注 2：Windows OpenSSL 1.0.2u 许可与本项目采用的 GPL-3.0 存在历史兼容性争议（广告条款），
   本组件随包分发仅为功能加速；因存在纯 Python 兜底（pyaes），使用方若需纯 GPL 合规分发可自行删除。
-- 注 3：Linux 静态版只启用 AES 相关基础算法，`enc` 子命令不依赖系统 `libcrypto/libssl`；
-  静态链接的 glibc 可能对 NSS / DNS 等功能有限制，但本工具只用于本地 AES 解密，不涉及网络。
-- 注 4：随包 Linux OpenSSL / brotli 二进制仅为 x86_64 构建；Linux ARM64 不加载这些
-  x86_64 文件，改用系统 `openssl` / `brotli`（Debian/Ubuntu：`sudo apt install openssl brotli`）。
+- 注 3：Linux 构建只启用 AES 相关基础算法，`enc` 子命令不依赖系统 `libcrypto/libssl`；
+  OpenSSL 库为静态链接，但 ARM64 可执行文件仍依赖 glibc（与 x86_64 版一致）。
+- 注 4：随包 Linux OpenSSL / brotli 同时提供 x86_64 与 ARM64 构建；ARM64 版本由
+  GitHub Actions `ubuntu-24.04-arm` 构建。若组件被删除或不可执行，工具才回退系统
+  `openssl` / `brotli` 或 Python 库。
 
 ## 5. 窗口图标与 GitHub / Gitee 图标
 

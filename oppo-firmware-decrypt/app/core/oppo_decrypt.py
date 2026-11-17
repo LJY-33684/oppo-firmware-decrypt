@@ -1001,8 +1001,8 @@ def decrypt(path, outdir, log=None, out_type='img'):
     if _OPENSSL is None:
         if sys.platform.startswith('linux'):
             emit("【提示】未检测到随包/系统 OpenSSL，已自动使用内置 pyaes（纯Python）解密；"
-                 "3GB 级大包会非常慢。请确认 app/bin/linux/%s/openssl 有可执行权限；"
-                 "ARM64 请安装系统 openssl；也可安装系统 openssl：Debian/Ubuntu: sudo apt install openssl，"
+                 "3GB 级大包会非常慢。请确认 app/bin/linux/%s/openssl 存在且可执行；"
+                 "也可安装系统 openssl 作为后备：Debian/Ubuntu: sudo apt install openssl，"
                  "CentOS/RHEL: sudo dnf install openssl" % _linux_arch())
         else:
             emit("【提示】未检测到 OpenSSL 加速组件，已自动使用内置 pyaes（纯Python）解密；"

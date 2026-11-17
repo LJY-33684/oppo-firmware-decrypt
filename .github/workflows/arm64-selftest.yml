@@ -22,15 +22,19 @@ jobs:
           python3 --version
           openssl version
 
-      - name: Install brotli CLI
+      - name: Verify bundled ARM64 components
+        working-directory: oppo-firmware-decrypt
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends brotli
+          chmod +x app/bin/linux/arm64/openssl app/bin/linux/arm64/brotli
+          file app/bin/linux/arm64/openssl app/bin/linux/arm64/brotli
+          ldd app/bin/linux/arm64/openssl
+          ldd app/bin/linux/arm64/brotli
+          app/bin/linux/arm64/openssl version
+          app/bin/linux/arm64/brotli --version
 
       - name: Run OPPO selftest on ARM64
         working-directory: oppo-firmware-decrypt
         env:
           OPPO_SKIP_GUI: 1
         run: |
-          chmod +x app/bin/linux/x86_64/openssl app/bin/linux/x86_64/brotli || true
           python3 app/tests/selftest.py
