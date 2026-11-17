@@ -87,6 +87,10 @@ def t_aes():
         assert bundled.exists(), 'Linux 随包 OpenSSL 不存在'
         assert Path(od._OPENSSL or '').resolve() == bundled, \
             f'Linux AES 未优先使用随包 OpenSSL：{od._OPENSSL}'
+    elif sys.platform.startswith('linux') and platform.machine().lower() in ('aarch64', 'arm64', 'armv8', 'arm64v8'):
+        assert od._OPENSSL, 'ARM64 Linux 未检测到系统 OpenSSL，无法启用 AES 加速'
+        assert 'linux/x86_64' not in (od._OPENSSL or '').replace('\\', '/'), \
+            f'ARM64 不应使用 x86_64 随包 OpenSSL：{od._OPENSSL}'
 
     iv = bytes.fromhex('2bf515b3a9737835' * 2)
     enc = pyaes.Encrypter(pyaes.AESModeOfOperationCFB(key, iv, segment_size=16))
@@ -101,6 +105,8 @@ def t_brotli():
     brotli._probe()
     backend = brotli.backend_name()
     assert backend != 'none', '未找到任何 brotli 后端'
+    if sys.platform.startswith('linux') and platform.machine().lower() in ('aarch64', 'arm64', 'armv8', 'arm64v8'):
+        assert backend != 'bundle-cmd', 'ARM64 不应使用 x86_64 随包 brotli'
     data = (b'OPPO firmware decrypt selftest\n' * 4096)
     src = TMP / 'sample.txt'
     br = TMP / 'sample.txt.br'

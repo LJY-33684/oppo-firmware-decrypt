@@ -19,6 +19,7 @@ import binascii
 import hashlib
 import mmap
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -37,19 +38,30 @@ TEMP_SUBDIR = '.oppo_decrypt_tmp'
 # ============================================================
 # AES 后端：openssl（快）优先，pyaes（纯 Python）兜底
 # ============================================================
-def _find_openssl():
-    """探测可用 openssl：按当前平台选择工具 bin/ 组件（体检可运行）→ 系统 PATH。
+def _linux_arch():
+    """返回 Linux 架构短名；ARM64 统一归到 arm64，未知架构原样返回。"""
+    machine = platform.machine().lower()
+    if machine in ('x86_64', 'amd64'):
+        return 'x86_64'
+    if machine in ('aarch64', 'arm64', 'armv8', 'arm64v8'):
+        return 'arm64'
+    return machine or 'unknown'
 
-    平台过滤很关键：WSL 默认启用 Windows 互操作，Linux 下也能直接执行
-    bin/win/x86_64/openssl.exe；若不按平台筛选，Linux 会误把 Windows 组件当成
-    可用后端，随包的 Linux 静态 OpenSSL 反而永远轮不到。因此 Windows 只试
-    openssl.exe，其它平台只试 bin/linux/x86_64/openssl。
+
+def _find_openssl():
+    """探测可用 openssl：按平台/架构选择随包组件（体检可运行）→ 系统 PATH。
+
+    平台/架构过滤很关键：WSL 默认启用 Windows 互操作，Linux 下也能直接执行
+    bin/win/x86_64/openssl.exe；ARM64 机器也不能执行随包的 x86_64 二进制。
+    因此 Windows 只试 openssl.exe，Linux 只试 bin/linux/<当前架构>/openssl，
+    找不到再回落到系统 PATH。
     """
     root = Path(__file__).resolve().parent.parent
     if sys.platform.startswith('win'):
         candidates = [root / 'bin' / 'win' / 'x86_64' / 'openssl.exe']
     else:
-        candidates = [root / 'bin' / 'linux' / 'x86_64' / 'openssl']
+        arch = _linux_arch()
+        candidates = [root / 'bin' / 'linux' / arch / 'openssl']
     for c in candidates:
         if not c.exists():
             continue
@@ -989,9 +1001,9 @@ def decrypt(path, outdir, log=None, out_type='img'):
     if _OPENSSL is None:
         if sys.platform.startswith('linux'):
             emit("【提示】未检测到随包/系统 OpenSSL，已自动使用内置 pyaes（纯Python）解密；"
-                 "3GB 级大包会非常慢。请确认 app/bin/linux/x86_64/openssl 有可执行权限；"
-                 "也可安装系统 openssl：Debian/Ubuntu: sudo apt install openssl，"
-                 "CentOS/RHEL: sudo dnf install openssl")
+                 "3GB 级大包会非常慢。请确认 app/bin/linux/%s/openssl 有可执行权限；"
+                 "ARM64 请安装系统 openssl；也可安装系统 openssl：Debian/Ubuntu: sudo apt install openssl，"
+                 "CentOS/RHEL: sudo dnf install openssl" % _linux_arch())
         else:
             emit("【提示】未检测到 OpenSSL 加速组件，已自动使用内置 pyaes（纯Python）解密；"
                  "大包会明显变慢。如需加速可双击运行 app\\tools 下的「获取openssl加速组件.bat」（可选）")

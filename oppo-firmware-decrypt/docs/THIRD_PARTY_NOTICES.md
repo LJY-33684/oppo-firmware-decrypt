@@ -62,10 +62,12 @@
   本组件随包分发仅为功能加速；因存在纯 Python 兜底（pyaes），使用方若需纯 GPL 合规分发可自行删除。
 - 注 3：Linux 静态版只启用 AES 相关基础算法，`enc` 子命令不依赖系统 `libcrypto/libssl`；
   静态链接的 glibc 可能对 NSS / DNS 等功能有限制，但本工具只用于本地 AES 解密，不涉及网络。
+- 注 4：随包 Linux OpenSSL / brotli 二进制仅为 x86_64 构建；Linux ARM64 不加载这些
+  x86_64 文件，改用系统 `openssl` / `brotli`（Debian/Ubuntu：`sudo apt install openssl brotli`）。
 
 ## 5. 窗口图标与 GitHub / Gitee 图标
 
-- 位置：`app/icons/`：`app.ico`、`app.png`、`icon_github.png`、`icon_gitee.png`
+- 位置：`app/icons/`：`app.ico`、`app.png`、`app_header.png`、`app_blank.ico`、`icon_github.png`、`icon_gitee.png`
 - `app.ico` / `app.png`：由使用方提供的图片经圆形蒙板裁切并转换为多尺寸 ICO，
   仅作为本工具窗口图标使用
 - `icon_github.png`、`icon_gitee.png`：仅作为界面底部跳转仓库入口的标识，不改变图标本身

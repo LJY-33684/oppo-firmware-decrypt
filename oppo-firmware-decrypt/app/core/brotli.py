@@ -6,7 +6,7 @@ brotli.py — .br 解压统一入口（多后端探测，跨平台，开箱即�
 brotli 没有可用的纯 Python 实现（唯一项目无许可证且极慢），故采用与
 openssl 加速组件一致的多后端策略，探测顺序依次为
   1. 工具自带 brotli 二进制（Windows：bin/win/x86_64/brotli.exe；
-     Linux：bin/linux/x86_64/brotli，随包分发，x86_64）
+     Linux：bin/linux/<架构>/brotli；当前随包提供 x86_64，ARM64 走系统命令）
   2. 系统 PATH 中的 brotli 命令（Linux 发行版 apt/dnf 安装后即有）
   3. 工具内置 vendor brotli 库（app/core/_vendor_brotli/，按解释器 ABI 匹配
      cp312/cp313/cp314/cp315 × win/linux，开箱即用，无需 pip 安装）
@@ -17,6 +17,7 @@ openssl 加速组件一致的多后端策略，探测顺序依次为
 注意：老固件（Android 8 以下，new.dat 无 .br）不会触发本模块。
 """
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -26,13 +27,23 @@ class BrotliUnavailable(RuntimeError):
     """未找到任何可用的 brotli 解码后端。"""
 
 
+def _linux_arch():
+    """返回 Linux 架构短名；ARM64 统一归到 arm64，未知架构原样返回。"""
+    machine = platform.machine().lower()
+    if machine in ('x86_64', 'amd64'):
+        return 'x86_64'
+    if machine in ('aarch64', 'arm64', 'armv8', 'arm64v8'):
+        return 'arm64'
+    return machine or 'unknown'
+
+
 # ---- 后端探测 ------------------------------------------------------
-# 工具自带 brotli 命令路径（Windows / Linux 分别随包分发）
+# 工具自带 brotli 命令路径（Windows / Linux 分别随包分发；Linux 按架构取目录）
 _TOOL_BIN = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     'bin',
     'linux' if sys.platform.startswith('linux') else 'win',
-    'x86_64',
+    'x86_64' if sys.platform.startswith('win') else _linux_arch(),
     'brotli' if sys.platform.startswith('linux') else 'brotli.exe')
 # 工具内置 vendor 库目录（wheel 解包，扁平结构：_brotli.pyd/.so + brotli.py）
 _VENDOR_DIR = os.path.join(
@@ -47,7 +58,7 @@ def _probe():
         return
     # 1) 工具自带 brotli.exe → 系统命令
     for cand in (_TOOL_BIN, shutil.which('brotli')):
-        if not cand:
+        if not cand or not os.path.isfile(cand):
             continue
         # 冒烟验证：命令确实能执行（避免 PATH 里是同名垃圾）
         try:
@@ -115,7 +126,8 @@ def brotli_decompress(src_path, dst_path, emit=None):
     if _BACKEND_NAME == 'none':
         raise BrotliUnavailable(
             "未找到可用的 brotli 解码后端：工具已内置 Windows brotli.exe（app/bin/win/x86_64）"
-            "与 Linux brotli（app/bin/linux/x86_64），以及 Python 库（app/core/_vendor_brotli/，cp312-315）；"
+            "与 Linux x86_64 brotli（app/bin/linux/x86_64），以及 Python 库（app/core/_vendor_brotli/，cp312-315）；"
+            "ARM64 请安装系统 brotli（Debian/Ubuntu: sudo apt install brotli）。"
             "请确认这些文件未被删除或损坏。Linux 也可另行 apt/dnf install brotli 或 pip install brotli。"
             "（仅 Android 9+ 固件的 new.dat.br 需要，老固件不受影响）")
     os.makedirs(os.path.dirname(os.path.abspath(dst_path)) or '.', exist_ok=True)
