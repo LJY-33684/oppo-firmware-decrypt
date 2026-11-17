@@ -1,0 +1,55 @@
+name: Build ARM64 bundled backends
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'oppo-firmware-decrypt/app/tools/build_linux_arm64_bins.sh'
+      - '.github/workflows/build-arm64-bins.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show ARM64 environment
+        run: |
+          uname -a
+          gcc --version | head -1
+          cmake --version | head -1
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential perl cmake curl ca-certificates file
+
+      - name: Build OpenSSL and brotli
+        run: |
+          mkdir -p "$RUNNER_TEMP/arm64-bins"
+          bash oppo-firmware-decrypt/app/tools/build_linux_arm64_bins.sh "$RUNNER_TEMP/arm64-bins"
+          cd "$RUNNER_TEMP/arm64-bins"
+          sha256sum openssl brotli | tee SHA256SUMS
+
+      - name: Verify ARM64 artifacts
+        run: |
+          file "$RUNNER_TEMP/arm64-bins/openssl" "$RUNNER_TEMP/arm64-bins/brotli"
+          ldd "$RUNNER_TEMP/arm64-bins/openssl" || true
+          ldd "$RUNNER_TEMP/arm64-bins/brotli" || true
+          "$RUNNER_TEMP/arm64-bins/openssl" version
+          "$RUNNER_TEMP/arm64-bins/brotli" --version
+          test -x "$RUNNER_TEMP/arm64-bins/openssl"
+          test -x "$RUNNER_TEMP/arm64-bins/brotli"
+
+      - name: Upload ARM64 binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: arm64-bins
+          path: ${{ runner.temp }}/arm64-bins
+          if-no-files-found: error
+          retention-days: 7
