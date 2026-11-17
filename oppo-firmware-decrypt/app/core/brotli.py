@@ -9,7 +9,8 @@ openssl 加速组件一致的多后端策略，探测顺序依次为
      Linux：bin/linux/<架构>/brotli；随包提供 x86_64 与 arm64，缺失才走系统命令）
   2. 系统 PATH 中的 brotli 命令（Linux 发行版 apt/dnf 安装后即有）
   3. 工具内置 vendor brotli 库（app/core/_vendor_brotli/，按解释器 ABI 匹配
-     cp312/cp313/cp314/cp315 × win/linux，开箱即用，无需 pip 安装）
+     cp312–cp315 × win + cp312–cp314 × Linux x86_64/aarch64，开箱即用；
+     cp315 暂无官方 aarch64 wheel，ARM64 上由随包 brotli 命令优先兜底）
   4. Python 的 brotli 库（pip install brotli，跨平台）
   5. Python 的 brotlicffi 库（pip install brotlicffi，跨平台）
 均未命中时抛出 BrotliUnavailable 并在日志中给出明确安装提示（不静默降级）。

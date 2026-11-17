@@ -39,6 +39,7 @@ from app.core import oppo_decrypt as od   # noqa: E402
 from app.core import pyaes                # noqa: E402
 from app.core import brotli               # noqa: E402
 from app.core import sdat2img             # noqa: E402
+from app.version import __version__ as VERSION  # noqa: E402
 
 RESULTS = []
 TMP = Path(tempfile.mkdtemp(prefix='oppo_dec_selftest_'))
@@ -80,6 +81,19 @@ def t_aes():
     # 解密通道（可能走 openssl，也可能走 pyaes；两条路径都验）
     dec = od.aes_ecb_decrypt(key, ct)
     assert dec == bytes(plain), 'aes_ecb_decrypt 与 pyaes 加密结果不一致'
+    # 16 字节块头必须绕开 openssl 进程：防止 OZIP 小块重新变成逐块 spawn
+    if od._OPENSSL:
+        original_openssl = od._openssl_decrypt
+
+        def forbidden(*args, **kwargs):
+            raise AssertionError('16B ECB 仍调用了 openssl，OZIP 小块性能回退')
+
+        od._openssl_decrypt = forbidden
+        try:
+            small_dec = od.aes_ecb_decrypt(key, ct)
+        finally:
+            od._openssl_decrypt = original_openssl
+        assert small_dec == bytes(plain), '小数据 pyaes 解密结果不一致'
     py_dec = pyaes.AESModeOfOperationECB(key).decrypt(ct)
     assert py_dec == bytes(plain), 'pyaes ECB 自身解密不一致'
     if sys.platform.startswith('linux') and platform.machine().lower() in ('x86_64', 'amd64'):
@@ -372,7 +386,7 @@ def t_cli():
     cli = ROOT / 'decrypt_cli.py'
     r = subprocess.run([sys.executable, str(cli), '--version'],
                        capture_output=True, text=True, encoding='utf-8')
-    assert r.returncode == 0 and r.stdout.strip() == '1.0.0.005', r.stdout
+    assert r.returncode == 0 and r.stdout.strip() == VERSION, r.stdout
     ver = r.stdout.strip()
 
     r2 = subprocess.run([sys.executable, str(cli), 'decrypt', '--input',

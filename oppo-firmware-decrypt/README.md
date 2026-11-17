@@ -3,7 +3,7 @@
 从 [mtk-garbage-porttool](https://github.com/LJY-33684/mtk-garbage-porttool-master) 中抽出的独立解密工具：
 只做一件事 —— 把 OPPO 系固件解开，得到分区镜像或标准卡刷包。
 
-- 版本：**1.0.0.005**
+- 版本：**1.0.0.008**
 - 仓库：https://github.com/LJY-33684/oppo-firmware-decrypt
 - 支持格式：**OFP（MTK）/ OZIP（Realme / OPPO）/ OPS（OnePlus）**
 - 平台：Windows x64（主）/ Linux x86_64（GUI + CLI）/ Linux ARM64（GUI + CLI，GUI 需 Tk）
@@ -89,7 +89,7 @@ oppo-firmware-decrypt/（源码子目录）
 │  │  ├─ brotli.py          new.dat.br 解压（多后端探测）
 │  │  ├─ sdat2img.py        new.dat + transfer.list → img
 │  │  ├─ pyaes/             纯 Python AES 兜底
-│  │  └─ _vendor_brotli/    内置 brotli Python 库（cp312–cp315 × win/manylinux）
+│  │  └─ _vendor_brotli/    内置 brotli Python 库（cp312–cp315 × win；Linux x86_64 cp312–cp315 / ARM64 cp312–cp314）
 │  ├─ bin/win/x86_64/       Windows openssl.exe + libeay32.dll + ssleay32.dll + brotli.exe
 │  ├─ bin/linux/x86_64/     Linux x86_64 openssl 3.5.5（静态单文件）+ brotli 1.1.0
 │  ├─ bin/linux/arm64/      Linux ARM64 openssl 3.5.5（静态库链接）+ brotli 1.1.0
@@ -136,7 +136,7 @@ GitHub Actions `ubuntu-24.04-arm` 会自动跑核心 13 项（GUI 跳过），�
 发行说明 markdown 渲染、GUI 弹窗全部保留。**当前 `UPDATE_ENABLED = True`，GitHub 更新源已配置**：
 `raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
 `contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 已指向
-GitHub `1.0.0.005` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
+GitHub `1.0.0.008` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
 「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；两个仓库与发行版均已创建，双源可用。
 
 ## 已知边界

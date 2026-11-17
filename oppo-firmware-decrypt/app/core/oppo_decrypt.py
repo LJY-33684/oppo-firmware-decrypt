@@ -85,6 +85,10 @@ def _find_openssl():
 
 _OPENSSL = _find_openssl()
 
+# openssl 每次调用都会 spawn 一个新进程；OZIP mode2 的块头只有 16 字节，
+# 3GB 包会产生上万次进程启动（2~5 分钟纯开销），小数据直接用 pyaes 更快。
+OPENSSL_MIN_BYTES = 1024
+
 
 def backend_name():
     """当前 AES 后端名称（供日志显示）。"""
@@ -103,12 +107,16 @@ def _openssl_decrypt(mode, key, iv, data):
 
 
 def aes_ecb_decrypt(key, data):
-    """AES-128-ECB 解密（自动补齐块，返回前 len(data) 字节）。"""
+    """AES-128-ECB 解密（自动补齐块，返回前 len(data) 字节）。
+
+    小数据（< OPENSSL_MIN_BYTES）优先走 pyaes：openssl 后端每次调用都要
+    spawn 一个进程，16 字节块头逐块调用时开销远大于 pyaes 本身。
+    """
     n = len(data)
     pad = (-n) % 16
     if pad:
         data = data + b'\x00' * pad
-    if _OPENSSL:
+    if _OPENSSL and n >= OPENSSL_MIN_BYTES:
         out = _openssl_decrypt('-aes-128-ecb', key, None, data)
     else:
         # pyaes ECB .decrypt 为单块方法，多块须逐块解密
