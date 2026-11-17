@@ -42,6 +42,7 @@ UI_FONT = (UI_FAMILY, 9)
 MONO_FONT = (MONO_FAMILY, 9)
 
 # GitHub / Gitee 仓库主页；两个仓库均已创建，图标文件在 app/icons/。
+GITHUB_PROFILE_URL = 'https://github.com/LJY-33684'
 REPO_LINKS = (
     ('icon_github.png', 'https://github.com/LJY-33684/oppo-firmware-decrypt'),
     ('icon_gitee.png', 'https://gitee.com/Q3368436451/oppo-firmware-decrypt'),
@@ -115,6 +116,8 @@ class App(tk.Tk):
         super().__init__()
         self._icon_photo = None
         self._icon_ready = False
+        self._header_icon = None
+        self._header_icon_label = None
         self._set_window_icon()
         self.title(f"{APP_TITLE} {__version__}")
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
@@ -144,18 +147,22 @@ class App(tk.Tk):
         threading.Thread(target=self._probe_backends, daemon=True).start()
 
     def _set_window_icon(self):
-        """设置窗口左上角图标：Windows 用多尺寸 ICO，其它平台用 PNG 回退。"""
+        """窗口内品牌图标由 _build_ui 提供；Windows 标题栏不再放图标。
+
+        Windows 标题栏图标固定 16×16，高 DPI 下还会发糊；这里用一张与
+        标题栏同色的 16×16 ICO 做视觉隐藏，避免 Tk 把透明图标画成黑块。
+        """
         icon_dir = Path(__file__).resolve().parent / 'icons'
-        ico_path = icon_dir / 'app.ico'
-        png_path = icon_dir / 'app.png'
         if sys.platform == 'win32':
             try:
-                self.iconbitmap(str(ico_path))
-                self.iconbitmap(default=str(ico_path))   # 更新弹窗等 Toplevel 也继承
+                blank_ico = icon_dir / 'app_blank.ico'
+                self.iconbitmap(str(blank_ico))
+                self.iconbitmap(default=str(blank_ico))
                 self._icon_ready = True
                 return
             except Exception:
                 pass
+        png_path = icon_dir / 'app.png'
         try:
             img = tk.PhotoImage(file=str(png_path))
             self.iconphoto(True, img)
@@ -179,11 +186,25 @@ class App(tk.Tk):
         left = ttk.Frame(outer)
         left.pack(side='left', fill='y', padx=(0, 8))
 
-        title = ttk.Label(left, text=APP_TITLE,
+        icon_dir = Path(__file__).resolve().parent / 'icons'
+        header = ttk.Frame(left)
+        header.pack(fill='x', pady=(2, 8))
+        try:
+            head_img = tk.PhotoImage(file=str(icon_dir / 'app_header.png'))
+            self._header_icon = head_img       # 防止被垃圾回收
+            icon_label = ttk.Label(header, image=head_img, cursor='hand2')
+            icon_label.pack(side='left', padx=(0, 10))
+            icon_label.bind('<Button-1>', lambda e: webbrowser.open(GITHUB_PROFILE_URL))
+            self._header_icon_label = icon_label
+        except Exception:
+            pass
+        head_text = ttk.Frame(header)
+        head_text.pack(side='left', fill='x', expand=True)
+        title = ttk.Label(head_text, text=APP_TITLE,
                           font=(UI_FAMILY, 10, 'bold'))
-        title.pack(anchor='w', pady=(2, 2))
-        ttk.Label(left, text='支持 OFP（MTK）/ OZIP / OPS；原始固件只读不动，产物写入输出目录。',
-                  foreground='#666666', wraplength=410).pack(anchor='w', pady=(0, 10))
+        title.pack(anchor='w', pady=(0, 2))
+        ttk.Label(head_text, text='支持 OFP（MTK）/ OZIP / OPS；原始固件只读不动，产物写入输出目录。',
+                  foreground='#666666', wraplength=480).pack(anchor='w')
 
         # 固件文件
         fw_box = ttk.Labelframe(left, text='固件文件')
