@@ -46,6 +46,7 @@ MUST_MIN_BYTES = {
 }
 MIN_FILES = 100
 MIN_ZIP_BYTES = 15 * 1024 * 1024
+ARM64_VENDOR_ABIS = ('cp312', 'cp313', 'cp314', 'cp315')
 
 
 def fail(msg):
@@ -65,11 +66,14 @@ def preflight():
     version_text = (ROOT / 'app/version.py').read_text(encoding='utf-8')
     if f'__version__ = {__version__!r}' not in version_text:
         fail(f'app/version.py 与导入版本不一致：{__version__}')
-    # ARM64 vendor 兜底：至少要有 cp312/313/314 的 aarch64 wheel 解包目录。
+    # ARM64 vendor 兜底：cp312–cp315 每个 ABI 都必须有 aarch64 wheel 解包目录。
     vendor = ROOT / 'app/core/_vendor_brotli'
     arm_dirs = [p for p in vendor.iterdir() if p.is_dir() and 'aarch64' in p.name]
-    if not any((p / 'brotli.py').exists() and any(p.glob('_brotli*.so')) for p in arm_dirs):
-        fail('app/core/_vendor_brotli 缺少 aarch64 wheel 解包目录')
+    for abi in ARM64_VENDOR_ABIS:
+        hit = [p for p in arm_dirs if abi in p.name and (p / 'brotli.py').exists()
+               and any(p.glob('_brotli*.so'))]
+        if not hit:
+            fail(f'app/core/_vendor_brotli 缺少 ARM64 {abi} wheel 解包目录')
     print(f'预检通过：{len(MUST_FILES)} 项 must 清单，版本 {__version__}')
 
 

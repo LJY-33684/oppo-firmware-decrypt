@@ -1,11 +1,11 @@
 # OPPO 固件解密工具 / OPPO Firmware Decrypt Tool
 
-> 当前版本 / Current version：**1.0.0.008**
+> 当前版本 / Current version：**1.0.0.009**
 
 > **仓库地址 / Repository：**
 > - **GitHub**：https://github.com/LJY-33684/oppo-firmware-decrypt
 > - **Gitee 镜像**：https://gitee.com/Q3368436451/oppo-firmware-decrypt
-> - **Gitee 发行版**：https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.008
+> - **Gitee 发行版**：https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.009
 
 ## 目录 / Table of Contents
 
@@ -74,7 +74,7 @@ GUI and CLI, and never modifies the source firmware.
   - Windows 自带 `openssl.exe`（AES 加速）与 `brotli.exe`（`.new.dat.br` 解压）
   - Linux x86_64 自带 `app/bin/linux/x86_64/openssl`（OpenSSL 3.5.5 静态 x86_64，单文件约 8.1 MB）与 `app/bin/linux/x86_64/brotli`（brotli 1.1.0，动态链接 glibc/libc/libm，需兼容 glibc）
   - Linux ARM64 自带 `app/bin/linux/arm64/openssl`（OpenSSL 3.5.5 aarch64，静态库链接，仅依赖 glibc）与 `app/bin/linux/arm64/brotli`（brotli 1.1.0 aarch64，动态链接 glibc/libc/libm）
-  - openssl 缺失时自动降级 `pyaes`；brotli 缺失时回落到 vendored Python 库（Windows / Linux x86_64 覆盖 cp312–cp315，Linux ARM64 覆盖 cp312–cp314）
+  - openssl 缺失时自动降级 `pyaes`；brotli 缺失时回落到 vendored Python 库（Windows / Linux x86_64 覆盖 cp312–cp315，Linux ARM64 覆盖 cp312–cp315，其中 cp315 为自编 wheel）
   - Windows 通常无需额外安装依赖；Linux 双架构均自带 OpenSSL，不再要求系统 PATH 中有 `openssl`（系统命令仍作为后备）
 
 - **4. 图形界面 / GUI**
@@ -229,7 +229,7 @@ python decrypt_cli.py --version
 | 用途 | 优先顺序 | 说明 |
 |---|---|---|
 | AES | Windows：`app/bin/win/x86_64/openssl.exe` → 系统 `openssl` → 内置 `pyaes`；Linux x86_64：`app/bin/linux/x86_64/openssl`（随包静态版）→ 系统 `openssl` → 内置 `pyaes`；Linux ARM64：`app/bin/linux/arm64/openssl`（随包静态库链接版）→ 系统 `openssl` → 内置 `pyaes` | openssl 快很多；Linux 双架构均优先随包组件 |
-| Brotli | 自带 `brotli`（Windows / Linux x86_64 / Linux ARM64 按架构取）→ 系统 PATH `brotli` → vendored Python 库（Windows / x86_64 cp312–cp315；ARM64 cp312–cp314）→ `pip install brotli` / `brotlicffi` | `.new.dat.br` 解压；缺失时原样保留并提示 |
+| Brotli | 自带 `brotli`（Windows / Linux x86_64 / Linux ARM64 按架构取）→ 系统 PATH `brotli` → vendored Python 库（Windows / x86_64 cp312–cp315；ARM64 cp312–cp315，cp315 为自编）→ `pip install brotli` / `brotlicffi` | `.new.dat.br` 解压；缺失时原样保留并提示 |
 | sdat2img | 内置 `app/core/sdat2img.py` | `new.dat + transfer.list → img` |
 
 <a name="singleton"></a>
@@ -249,16 +249,16 @@ python decrypt_cli.py --version
 渲染与 GUI 弹窗全部保留。当前 **`UPDATE_ENABLED = True`，GitHub 更新源已配置**：
 `raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
 `contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 指向
-GitHub `1.0.0.008` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
+GitHub `1.0.0.009` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
 「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；两个 Release 均已发布，双源可用。
 
 <a name="release"></a>
 ## 发行包 / Release Package
 
-发行资产命名：`oppo-firmware-decrypt-1.0.0.008.zip`，zip 内根目录为 `oppo-firmware-decrypt/`，
+发行资产命名：`oppo-firmware-decrypt-1.0.0.009.zip`，zip 内根目录为 `oppo-firmware-decrypt/`，
 解压后 Windows 可直接 `run.bat`、Linux 可直接 `./run.sh` 启动。当前发布页：
-- GitHub：[`1.0.0.008`](https://github.com/LJY-33684/oppo-firmware-decrypt/releases/tag/1.0.0.008)
-- Gitee：[`1.0.0.008`](https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.008)
+- GitHub：[`1.0.0.009`](https://github.com/LJY-33684/oppo-firmware-decrypt/releases/tag/1.0.0.009)
+- Gitee：[`1.0.0.009`](https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.009)
 
 打包命令：
 
@@ -321,6 +321,10 @@ risk; the developers assume no responsibility for damage, data loss, or warranty
 <a name="history"></a>
 ## 版本记录 / Version History
 
+- **1.0.0.009**（ARM64 cp315 自编 wheel）
+  - 新增 `build_brotli_arm64_wheel.sh` 与 `build-brotli-arm64-wheel.yml`，在 `ubuntu-24.04-arm` 上构建 cp315 aarch64 wheel
+  - `_vendor_brotli` 补入自编 `brotli-1.2.0-cp315-cp315-linux_aarch64`，ARM64 vendor 覆盖 cp312–cp315
+  - `build_zip.py` 的 ARM64 vendor 断言改为逐一要求 cp312 / cp313 / cp314 / cp315
 - **1.0.0.008**（OZIP 小块性能 / ARM64 vendor / 打包断言）
   - OZIP 小块 ECB 头直接走 pyaes，不再为每个 16 字节块 spawn openssl；大块仍走 openssl
   - `_vendor_brotli` 补充 cp312 / cp313 / cp314 的 `manylinux2014_aarch64` wheel；

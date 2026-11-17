@@ -33,9 +33,10 @@
 - 位置：
   - Windows 二进制：`app/bin/win/x86_64/brotli.exe`（Google 官方 Windows 静态版，随包分发）
   - Linux 二进制：`app/bin/linux/x86_64/brotli`、`app/bin/linux/arm64/brotli`（官方源码构建，随包分发）
-  - Python 库：`app/core/_vendor_brotli/`（官方 PyPI wheel 解包，Windows / Linux x86_64 覆盖
-    cp312 / cp313 / cp314 / cp315；Linux ARM64 覆盖 cp312 / cp313 / cp314，按解释器 ABI 自动匹配；
-    cp315 ARM64 暂无官方 wheel，运行时会优先使用随包 brotli 命令；各子目录保留 wheel 原始 `dist-info` 许可文件）
+  - Python 库：`app/core/_vendor_brotli/`（官方 PyPI wheel 解包 + 自编 cp315 aarch64 wheel，Windows / Linux x86_64 覆盖
+    cp312 / cp313 / cp314 / cp315；Linux ARM64 覆盖 cp312 / cp313 / cp314 / cp315，按解释器 ABI 自动匹配；
+    cp315 ARM64 使用本仓库 `build_brotli_arm64_wheel.sh` 在 `ubuntu-24.04-arm` 构建的 `linux_aarch64` wheel；
+    各子目录保留 wheel 原始 `dist-info` 许可文件）
 - 版本：Windows / Linux CLI 二进制 1.1.0；Python 库 1.2.0
 - 版权：Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors（MIT License）
 - 用途：OZIP 以 img 模式输出时解压 `system/vendor` 等分区的 `.new.dat.br`（Android 9+ 固件）

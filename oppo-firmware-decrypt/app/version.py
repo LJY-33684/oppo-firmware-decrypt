@@ -8,5 +8,6 @@
 Linux 适配：1.0.0.002
 Linux OpenSSL 内置：1.0.0.005
 OZIP 小块性能 / ARM64 vendor / 打包断言：1.0.0.008
+ARM64 cp315 自编 wheel：1.0.0.009
 """
-__version__ = '1.0.0.008'
+__version__ = '1.0.0.009'
