@@ -1,0 +1,42 @@
+name: Build Brotli ARM64 cp315 wheel
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'oppo-firmware-decrypt/app/tools/build_brotli_arm64_wheel.sh'
+      - '.github/workflows/build-brotli-arm64-wheel.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.15 (ARM64)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.15'
+
+      - name: Build Brotli cp315 aarch64 wheel
+        run: |
+          python --version
+          bash oppo-firmware-decrypt/app/tools/build_brotli_arm64_wheel.sh "$RUNNER_TEMP/brotli-cp315-dist"
+
+      - name: Show wheel and repair tag if possible
+        run: |
+          ls -l "$RUNNER_TEMP/brotli-cp315-dist"
+          python -m pip install --upgrade auditwheel
+          auditwheel show "$RUNNER_TEMP/brotli-cp315-dist/"*.whl || true
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: brotli-cp315-aarch64
+          path: ${{ runner.temp }}/brotli-cp315-dist
+          if-no-files-found: error
+          retention-days: 7
