@@ -1,11 +1,11 @@
 # OPPO 固件解密工具 / OPPO Firmware Decrypt Tool
 
-> 当前版本 / Current version：**1.0.1.001**
+> 当前版本 / Current version：**1.0.1.003**
 
 > **仓库地址 / Repository：**
 > - **GitHub**：https://github.com/LJY-33684/oppo-firmware-decrypt
 > - **Gitee 镜像**：https://gitee.com/Q3368436451/oppo-firmware-decrypt
-> - **Gitee 发行版**：https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.1.001
+> - **Gitee 发行版**：https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.1.003
 
 ## 目录 / Table of Contents
 
@@ -255,14 +255,13 @@ python decrypt_cli.py --version
 渲染与 GUI 弹窗全部保留。当前 **`UPDATE_ENABLED = True`，GitHub 更新源已配置**：
 `raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
 `contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 指向
-GitHub `1.0.1.001` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
-「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；`.009` 双源已发布，
-`1.0.1.001` 待测试通过后同步。
+GitHub `1.0.1.003` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
+「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；`1.0.1.003` 已双源发布。
 
 <a name="release"></a>
 ## 发行包 / Release Package
 
-发行资产命名：`oppo-firmware-decrypt-1.0.1.001.zip`，zip 内根目录为 `oppo-firmware-decrypt/`，
+发行资产命名：`oppo-firmware-decrypt-1.0.1.003.zip`，zip 内根目录为 `oppo-firmware-decrypt/`，
 解压后 Windows 可直接 `run.bat`、Linux 可直接 `./run.sh` 启动。上一版发布页：
 - GitHub：[`1.0.0.009`](https://github.com/LJY-33684/oppo-firmware-decrypt/releases/tag/1.0.0.009)
 - Gitee：[`1.0.0.009`](https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.009)
@@ -285,9 +284,10 @@ ARM64 vendor、文件数与 Linux 755 执行位断言，缺项直接中止。
 - 合成样本只能证明算法链路，不能覆盖各家机型密钥表差异；真实 OPS 大包尚未做端到端验证。
 - OFP 沿用上游实现：MTK 按「加密首块（`enclength > 0`）+ 明文余下部分」读取；
   高通 QC 按「前 0x40000 加密 + 余下明文」读取，私有打包布局可能需适配。
-- 高通 QC 的 6 组密钥覆盖约 2020 年以前机型；更新机型可能不在密钥表内，会明确报密钥不匹配。
+- 高通 QC 内置 6 组密钥，覆盖机型有限；2021 年的 `RMX1851EX_11_C.18` 实测命中第 4 组，
+  不能按年份判断支持范围；未命中时会报“未命中内置密钥表”。
 - QC zip 型使用固定密码 `flash@realme$50E7F7D847732396F1582CD62DD385ED7ABB0897`；
-  普通未加密 zip 不会被误判为 QC OFP。
+  当前仅接受带加密位的 QC zip，未加密型因暂无真实样本保持保守拒绝。
 - 内置 Windows `openssl.exe` 为 1.0.2u，仅用于加速；其许可与 GPL-3.0 存在历史争议，可删除并回落到 pyaes。
 - 内置 Linux x86_64 / ARM64 `openssl` 均为 OpenSSL 3.5.5 构建（Apache-2.0），许可原文见 `app/licenses/OpenSSL-3-LICENSE.txt`；ARM64 静态链接 OpenSSL 库，仅依赖 glibc。
 - Windows `brotli.exe` 来自 `brotli-x64-windows-static.zip`，但 PE 导入表仍含 `VCRUNTIME140.dll` 与 Universal CRT API-set，仍需系统 VC 运行库；缺失时会回落到内置 Python 库。
@@ -333,6 +333,11 @@ risk; the developers assume no responsibility for damage, data loss, or warranty
 <a name="history"></a>
 ## 版本记录 / Version History
 
+- **1.0.1.003**（QC 报错文案 / OFP 结构兜底修正）
+  - QC 密钥未命中时改为明确提示“未命中内置密钥表”，不再按 2020 年份推断支持范围
+  - `detect_format` 增加 OFP 结构兜底：`.ofp` 改名为 `.bin` 后仍可通过 PK 头 /
+    `0x7CEF` 尾页识别为 `ofp_qc_zip` / `ofp_qc`
+  - QC zip 未加密条目仍按保守策略拒绝，但错误文案明确说明暂无真实样本
 - **1.0.1.001**（高通 QC OFP 分支 / Qualcomm QC OFP branch）
   - `.ofp` 不再一律按 MTK 处理：按文件结构区分 `ofp_qc_zip` / `ofp_qc` / `ofp_mtk`
   - QC zip 型：固定密码解压分区；`--out-type zip` 下解压后重新打包

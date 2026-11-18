@@ -305,7 +305,8 @@ def _ofp_mtk(filename, outdir, emit):
 # ============================================================
 # 二、OFP（高通 / QC）解密 —— ofp_qc_decrypt.py
 # ============================================================
-# 上游 bkerler/oppo_decrypt 的 QC 密钥表（6 组，覆盖约 2020 年以前）。
+# 上游 bkerler/oppo_decrypt 的 6 组内置 QC 密钥；覆盖机型有限，
+# 2021 年的 RMX1851EX C.18 实测命中第 4 组，不能按年份判断支持范围。
 _QC_OFP_KEYS = [
     ('R9s / A57t V1.4.17/1.4.27',
      '27827963787265EF89D126B69A495A21',
@@ -374,19 +375,23 @@ def _qc_find_pagesize(rf, filesize):
     return 0
 
 
-def detect_ofp_variant(path):
-    """只读探测 .ofp 变体：ofp_qc_zip / ofp_qc / ofp_mtk。"""
+def _probe_ofp_layout(path):
+    """只按文件结构探测可确认的 OFP 变体；无法确认时返回 None。"""
     try:
         filesize = os.path.getsize(path)
         with open(path, 'rb') as f:
             if f.read(2) == b'PK':
                 return 'ofp_qc_zip'
-            page = _qc_find_pagesize(f, filesize)
-            if page:
+            if _qc_find_pagesize(f, filesize):
                 return 'ofp_qc'
     except OSError:
         pass
-    return 'ofp_mtk'
+    return None
+
+
+def detect_ofp_variant(path):
+    """只读探测 .ofp 变体：ofp_qc_zip / ofp_qc / ofp_mtk。"""
+    return _probe_ofp_layout(path) or 'ofp_mtk'
 
 
 def _qc_read_xml(rf, filesize, pagesize, key, iv):
@@ -596,7 +601,7 @@ def _ofp_qc(filename, outdir, emit):
     """高通 QC OFP（尾部 0x7CEF 索引 + XML 分派）解密。"""
     found = _ofp_qc_find_key(filename)
     if not found:
-        emit('【错误】未知 QC OFP 密钥，可能超出密钥表覆盖范围（≤2020）')
+        emit('【错误】未命中内置密钥表，已中止')
         return False
     pagesize, key, iv, xml_data, key_label = found
     emit(f'  - 命中 QC OFP 密钥组 {key_label}')
@@ -641,7 +646,8 @@ def _ofp_qc_zip(filename, outdir, emit):
         with zipfile.ZipFile(filename) as zf:
             infos = zf.infolist()
             if not any(zi.flag_bits & 0x1 for zi in infos):
-                emit('【错误】不是 OPPO 高通 OFP：zip 条目未加密')
+                emit('【错误】不是 OPPO 高通 OFP：zip 条目未加密'
+                     '（当前仅支持带加密位的 QC zip，未加密型暂无样本）')
                 return False
             count = 0
             for zi in infos:
@@ -1285,7 +1291,11 @@ def detect_format(path):
     if name.endswith('.ozip'):
         if magic == b'OPPOENCRYPT!' or magic[:2] == b'PK':
             return 'ozip'
-    # 扩展名缺失/不符时的魔数兜底
+    # 扩展名缺失/不符时的结构兜底：先确认 QC 结构，再做 OZIP 魔数判断。
+    # 这样把 .ofp 改名为 .bin 后，仍能靠 PK / 0x7CEF 尾页识别，而不会误报 None。
+    probe = _probe_ofp_layout(path)
+    if probe:
+        return probe
     if magic == b'OPPOENCRYPT!':
         return 'ozip'
     return None

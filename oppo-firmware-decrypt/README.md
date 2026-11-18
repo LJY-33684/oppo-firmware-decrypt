@@ -3,7 +3,7 @@
 从 [mtk-garbage-porttool](https://github.com/LJY-33684/mtk-garbage-porttool-master) 中抽出的独立解密工具：
 只做一件事 —— 把 OPPO 系固件解开，得到分区镜像或标准卡刷包。
 
-- 版本：**1.0.1.001**
+- 版本：**1.0.1.003**
 - 仓库：https://github.com/LJY-33684/oppo-firmware-decrypt
 - 支持格式：**OFP（MTK / 高通 QC）/ OZIP（Realme / OPPO）/ OPS（OnePlus）**
 - 平台：Windows x64（主）/ Linux x86_64（GUI + CLI）/ Linux ARM64（GUI + CLI，GUI 需 Tk）
@@ -138,9 +138,8 @@ Linux 无 7-Zip 时“QC zip 重打包”合成样本自动 SKIP，其余核心�
 发行说明 markdown 渲染、GUI 弹窗全部保留。**当前 `UPDATE_ENABLED = True`，GitHub 更新源已配置**：
 `raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
 `contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 已指向
-GitHub `1.0.1.001` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
-「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；`.009` 双源已发布，
-`1.0.1.001` 待测试通过后同步。
+GitHub `1.0.1.003` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
+「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；`1.0.1.003` 已双源发布。
 
 ## 已知边界
 
@@ -148,10 +147,11 @@ GitHub `1.0.1.001` Release 资产，`update_url_2` 指向 Gitee 同版本资产�
   合成样本只能证明算法链路，不覆盖各家机型的密钥表差异。
 - MTK OFP 解密沿用上游实现：每个分区以「加密首块（`enclength > 0`）+ 明文余下部分」布局读取，
   与真实 OFP 一致；若遇到首块未加密的私有打包，需另做适配。
-- 高通 QC OFP：XML 索引来自 `0x7CEF` 尾页，6 组密钥覆盖约 2020 年以前机型；
+- 高通 QC OFP：XML 索引来自 `0x7CEF` 尾页，内置 6 组密钥覆盖机型有限；
+  2021 年的 `RMX1851EX_11_C.18` 实测命中第 4 组，不能按年份判断支持范围。
   分区前 `0x40000` 字节解密、其余明文，`Sahara` 整段解密，`Firmware` / `DigestsToSign` /
-  `ChainedTableOfDigests` 直接 copy。新机型可能不在密钥表内，会明确报密钥不匹配。
-- 高通 QC zip 型使用固定密码解压；普通未加密 zip 不会被误判为 QC OFP。
+  `ChainedTableOfDigests` 直接 copy。新机型可能不在密钥表内，会明确报“未命中内置密钥表”。
+- 高通 QC zip 型使用固定密码解压；当前仅接受带加密位的 QC zip，未加密型因暂无真实样本保持保守拒绝。
 - 已用 `RMX1851EX_11_C.18_210724` 真实 `.ofp`（9.27 GB，密钥组 #4）完成全量导出：
   58 个文件 / 9.72 GB；`boot.img`、`recovery.img` 为 `ANDROID!`，`system.img` /
   `vendor.img` / `userdata.img` 为 Android sparse 镜像，`xbl.elf` 为 ELF。

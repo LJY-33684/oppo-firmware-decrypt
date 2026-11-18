@@ -196,9 +196,13 @@ def t_singleton():
 
 # ---------------- 4. 格式识别 ----------------
 def t_detect():
+    qc_tail = bytearray(0x214)
+    struct.pack_into('<I', qc_tail, 0x24, 0x7CEF)
     cases = [
         ('a.ofp', b'MMM' + b'\0' * 9, 'ofp_mtk'),
         ('qc_zip.ofp', b'PK\x03\x04' + b'\0' * 8, 'ofp_qc_zip'),
+        ('renamed_qc_zip.bin', b'PK\x03\x04' + b'\0' * 8, 'ofp_qc_zip'),
+        ('renamed_qc.bin', bytes(qc_tail), 'ofp_qc'),
         ('b.ops', b'\0' * 12, 'ops'),
         ('c.ozip', b'OPPOENCRYPT!' + b'\0' * 12, 'ozip'),
         ('d.ozip', b'PK\x03\x04' + b'\0' * 8, 'ozip'),
