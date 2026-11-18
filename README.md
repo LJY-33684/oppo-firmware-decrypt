@@ -1,11 +1,11 @@
 # OPPO 固件解密工具 / OPPO Firmware Decrypt Tool
 
-> 当前版本 / Current version：**1.0.0.009**
+> 当前版本 / Current version：**1.0.1.001**
 
 > **仓库地址 / Repository：**
 > - **GitHub**：https://github.com/LJY-33684/oppo-firmware-decrypt
 > - **Gitee 镜像**：https://gitee.com/Q3368436451/oppo-firmware-decrypt
-> - **Gitee 发行版**：https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.009
+> - **Gitee 发行版**：https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.1.001
 
 ## 目录 / Table of Contents
 
@@ -36,21 +36,22 @@ OPPO 固件解密模块中抽出，独立成一个只做一件事的工具：**�
 得到分区镜像或标准卡刷包**。核心解密逻辑与上游保持一致，去掉了移植工具的方案表、
 移植条目与设备状态体系，保留 GUI、CLI、随包加速组件与更新检查框架。
 
-支持 **OFP（OPPO MTK）/ OZIP（Realme / OPPO）/ OPS（OnePlus）** 三种格式；
+支持 **OFP（OPPO MTK / 高通 QC）/ OZIP（Realme / OPPO）/ OPS（OnePlus）** 三种格式；
 原始固件全程只读，输出目录可自定义，临时文件在输出目录内自动清理。
 
 This tool is extracted from the OPPO firmware decryption module of
 [mtk-garbage-porttool](https://github.com/LJY-33684/mtk-garbage-porttool-master).
 It does one thing only: decrypt OPPO-family official firmware and produce partition
-images or a standard flashable ZIP. It supports **OFP / OZIP / OPS**, provides both
-GUI and CLI, and never modifies the source firmware.
+images or a standard flashable ZIP. It supports **OFP (MTK / Qualcomm QC), OZIP and
+OPS**, provides both GUI and CLI, and never modifies the source firmware.
 
 <a name="credits"></a>
 ## 致谢 / Credits
 
 - 解密算法来自 [@bkerler/OPPO_Decrypt_Tools](https://github.com/bkerler/OPPO_Decrypt_Tools)
-  （MIT License），经 [@ColdWindScholar/TIK](https://github.com/ColdWindScholar/TIK) 集成，
-  再经 mtk-garbage-porttool 合并为三合一模块。
+  （MIT License），其中高通 QC OFP 部分来自 `ofp_qc_decrypt.py`；
+  经 [@ColdWindScholar/TIK](https://github.com/ColdWindScholar/TIK) 集成，
+  再经 mtk-garbage-porttool 合并为多格式模块。
 - 单实例锁、更新检查框架与底部风险提示复用了 mtk-garbage-porttool 的实现。
 - 内置 OpenSSL：Windows 为 1.0.2u x64 构建（Shining Light Productions）；
   Linux x86_64 / ARM64 为 OpenSSL 3.5.5 静态构建（随包，均只用于 AES 加速）；
@@ -61,14 +62,15 @@ GUI and CLI, and never modifies the source firmware.
 <a name="features"></a>
 ## 功能特点 / Features
 
-- **1. 三格式识别 / Three-format detection**
+- **1. 多格式识别 / Multi-format detection**
   - 自动识别 `.ofp` / `.ozip` / `.ops`，无需手动选择格式
+  - OFP 按文件结构区分 MTK（`MMM` + 分区表）与高通 QC（`0x7CEF` 尾页 / PK zip）
   - OZIP 支持 PK 型加密包、OPPOENCRYPT 头和明文旧包
-  - OFP 按 MTK 分区表导出，OPS 解析尾部 XML 与加密分区
+  - OPS 解析尾部 XML 与加密分区
 
 - **2. 两种输出形态 / Two output modes**
   - `img`：展开固件并转换成分区镜像（OFP / OZIP / OPS 通用）
-  - `zip`：只重建解密后的卡刷包（仅 OZIP；OFP / OPS 自动按 img 处理）
+  - `zip`：OZIP 重建卡刷包；高通 QC zip 型解压后重打包（加密型 QC OFP 无卡刷包形态，自动按 img 处理）
 
 - **3. 随包组件 / Bundled backends**
   - Windows 自带 `openssl.exe`（AES 加速）与 `brotli.exe`（`.new.dat.br` 解压）
@@ -100,21 +102,23 @@ GUI and CLI, and never modifies the source firmware.
   - 圆形蒙板窗口图标（多尺寸 ICO，圆外透明）
 
 - **8. 自检 / Self-test**
-  - 15 项合成样本自检：AES 双后端、brotli、sdat2img、fsutil、单实例锁、
-    格式识别、OZIP/OFP/OPS 解密、CLI 契约、更新源配置、GUI 冒烟与端到端
+  - 18 项合成样本自检：AES 双后端、brotli、sdat2img、fsutil、单实例锁、
+    格式识别、OZIP / MTK OFP / 高通 QC OFP / OPS 解密、CLI 契约、更新源配置、GUI 冒烟与端到端
   - Linux 默认跳过 GUI 两项（避免远程 X 的 xcb 进程级 abort）；确认真实桌面后设 `OPPO_TEST_GUI=1` 启用
-  - GitHub Actions `ubuntu-24.04-arm` 自动跑核心 13 项（GUI 跳过），ARM64 当前 13/13 通过
+  - 无 7-Zip 时跳过“加密 QC zip 重打包”合成样本，其余核心用例仍会执行
 
 <a name="formats"></a>
 ## 支持格式 / Supported Formats
 
 | 格式 / Format | 适用设备 / Devices | 识别方式 / Detection | 输出 / Output |
 |---|---|---|---|
-| **OFP** | OPPO MTK 平台 | 文件头 `MMM` + 分区表结构 | 分区镜像（img） |
+| **OFP（MTK）** | OPPO MTK 平台 | 文件头 `MMM` + MTK 分区表 | 分区镜像（img） |
+| **OFP（QC）** | OPPO / Realme 高通平台 | 尾部 `0x7CEF` 页索引，或文件头 `PK`（固定密码 zip） | 分区镜像（img）或 QC zip 解压后重打包 |
 | **OZIP** | Realme / OPPO | `OPPOENCRYPT!` 头 / PK 型加密包 / 明文 ZIP | 卡刷包（zip）或分区镜像（img） |
 | **OPS** | OnePlus MSM/EDL 包 | 尾部 0x200 头 + XML 索引 | 分区镜像（img） |
 
-> 说明：OFP / OPS 没有“卡刷包”形态，选择 `zip` 时会提示并仍按 `img` 输出。
+> 说明：MTK OFP / OPS / 加密型 QC OFP 没有“卡刷包”形态，选择 `zip` 时会提示并仍按 `img` 输出；
+> 高通 QC zip 型在 `zip` 下会先解压、再重新打包为卡刷 zip。
 
 <a name="layout"></a>
 ## 仓库结构 / Repository Layout
@@ -139,12 +143,12 @@ oppo-firmware-decrypt/
    │  ├─ updater.py          更新检查（GitHub / Gitee 双源，均已配置）
    │  ├─ common.py           CLI / GUI 共用逻辑
    │  ├─ version.py          版本号唯一真源
-   │  ├─ core/               解密核心（OFP / OZIP / OPS、brotli、sdat2img、pyaes）
+   │  ├─ core/               解密核心（MTK OFP / 高通 QC OFP / OZIP / OPS、brotli、sdat2img、pyaes）
    │  ├─ bin/win/x86_64/     Windows openssl / brotli 加速组件
    │  ├─ bin/linux/x86_64/   Linux x86_64 OpenSSL 静态版 + brotli
    │  ├─ bin/linux/arm64/    Linux ARM64 OpenSSL 静态库链接版 + brotli
    │  ├─ licenses/          OpenSSL / Brotli 许可原文
-   │  ├─ tests/selftest.py   合成样本自检（15 项）
+   │  ├─ tests/selftest.py   合成样本自检（18 项）
    │  └─ tools/              build_zip.py + 获取 openssl/brotli 组件脚本
    ├─ docs/                  INTERFACE.md / THIRD_PARTY_NOTICES.md / 界面截图
    ├─ README.md              使用说明、输出约定、已知边界
@@ -158,7 +162,7 @@ oppo-firmware-decrypt/
 - **Linux x86_64**：支持 GUI / CLI，Python 3.10+，需带 Tcl/Tk（Debian/Ubuntu 装 `python3-tk`）；AES 使用随包 `app/bin/linux/x86_64/openssl`（OpenSSL 3.5.5 静态版），brotli 使用随包 `app/bin/linux/x86_64/brotli`（动态链接，需 glibc）
 - **Linux ARM64**：支持 GUI / CLI，Python 3.10+，需带 Tcl/Tk（Debian/Ubuntu 装 `python3-tk`）；AES 使用随包 `app/bin/linux/arm64/openssl`（OpenSSL 3.5.5 静态库链接），brotli 使用随包 `app/bin/linux/arm64/brotli`（动态链接 glibc/libc/libm）
 - Linux 桌面用 `./run.sh`；无图形环境时用 `./run.sh --cli` 或直接调用 `decrypt_cli.py`
-- 已在 Python 3.15 上完成 15/15 自检；Linux Python 3.14 核心 13/13 通过，WSLg 真实显示下 GUI 自检 15/15 通过；GitHub Actions `ubuntu-24.04-arm` 上 ARM64 核心 13/13 通过（随包 ARM64 组件，GUI 两项跳过）
+- 已在 Python 3.15 上完成源自检（GUI 默认跳过）；Linux Python 3.14 与 WSLg 真实显示下的 GUI 自检结果见版本记录；GitHub Actions `ubuntu-24.04-arm` 上 ARM64 核心用例通过（随包 ARM64 组件，GUI 两项跳过）
 - 若默认 `python` 是精简运行时（缺 `init.tcl`），`run.bat` 会自动尝试 `py -3` 与官方 Python 3.15
 
 <a name="gui"></a>
@@ -173,7 +177,7 @@ run.bat          # Windows：或 python main.py
 操作顺序：
 
 1. 选择固件（`.ofp` / `.ozip` / `.ops`），界面即时显示识别格式
-2. 选择输出类型：img（默认）或 zip（仅 OZIP）
+2. 选择输出类型：img（默认）或 zip（OZIP / 高通 QC zip 型）
 3. 选择输出目录；留空则输出到固件同级 `<固件名>_decrypted/`
 4. 点击「开始解密」，右侧日志实时显示进度
 
@@ -189,7 +193,7 @@ run.bat          # Windows：或 python main.py
 # 默认：展开成分区镜像
 python decrypt_cli.py decrypt --input RMX1901_11.A.20_OTA.ozip
 
-# 输出解密后的卡刷包（仅 OZIP）
+# 输出解密后的卡刷包（OZIP / 高通 QC zip 型）
 python decrypt_cli.py decrypt --input RMX1901_11.A.20_OTA.ozip --out-type zip
 
 # 指定输出目录 + 落盘日志
@@ -218,7 +222,9 @@ python decrypt_cli.py --version
 | 默认输出目录 | 固件同级 `<固件名>_decrypted/`；已存在且非空时追加 `_YYYYMMDD-HHMMSS`，不覆盖旧产物 |
 | 临时目录 | `<输出目录>/.oppo_decrypt_tmp/`，结束（成功或失败）自动清理 |
 | 原始固件 | 只读不动，任何情况下都不修改源文件 |
-| OFP / OPS | 始终输出分区镜像 |
+| MTK OFP / OPS | 始终输出分区镜像 |
+| 高通 QC OFP（加密型） | 输出分区镜像；选择 zip 时提示后仍按 img |
+| 高通 QC OFP（zip 型）+ zip | 解压到临时目录，再重打包为 `<原文件名>.zip`；不保留解压目录 |
 | OZIP + img | 解密 → 展开 → `*.new.dat[.br]` 转 `*.img`，中间文件转换成功后清理 |
 | OZIP + zip | 只重建卡刷包，不展开、不转换 |
 | 路径安全 | ZIP 条目解析到输出目录之外时跳过并告警 |
@@ -249,14 +255,15 @@ python decrypt_cli.py --version
 渲染与 GUI 弹窗全部保留。当前 **`UPDATE_ENABLED = True`，GitHub 更新源已配置**：
 `raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
 `contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 指向
-GitHub `1.0.0.009` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
-「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；两个 Release 均已发布，双源可用。
+GitHub `1.0.1.001` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
+「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；`.009` 双源已发布，
+`1.0.1.001` 待测试通过后同步。
 
 <a name="release"></a>
 ## 发行包 / Release Package
 
-发行资产命名：`oppo-firmware-decrypt-1.0.0.009.zip`，zip 内根目录为 `oppo-firmware-decrypt/`，
-解压后 Windows 可直接 `run.bat`、Linux 可直接 `./run.sh` 启动。当前发布页：
+发行资产命名：`oppo-firmware-decrypt-1.0.1.001.zip`，zip 内根目录为 `oppo-firmware-decrypt/`，
+解压后 Windows 可直接 `run.bat`、Linux 可直接 `./run.sh` 启动。上一版发布页：
 - GitHub：[`1.0.0.009`](https://github.com/LJY-33684/oppo-firmware-decrypt/releases/tag/1.0.0.009)
 - Gitee：[`1.0.0.009`](https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.009)
 
@@ -276,7 +283,11 @@ ARM64 vendor、文件数与 Linux 755 执行位断言，缺项直接中止。
 
 - 仓库不带真实固件样本（体积与版权原因）；发布前建议用真实 OFP / OZIP / OPS 各跑一遍。
 - 合成样本只能证明算法链路，不能覆盖各家机型密钥表差异；真实 OPS 大包尚未做端到端验证。
-- OFP 沿用上游实现：按「加密首块（`enclength > 0`）+ 明文余下部分」读取；私有打包布局可能需适配。
+- OFP 沿用上游实现：MTK 按「加密首块（`enclength > 0`）+ 明文余下部分」读取；
+  高通 QC 按「前 0x40000 加密 + 余下明文」读取，私有打包布局可能需适配。
+- 高通 QC 的 6 组密钥覆盖约 2020 年以前机型；更新机型可能不在密钥表内，会明确报密钥不匹配。
+- QC zip 型使用固定密码 `flash@realme$50E7F7D847732396F1582CD62DD385ED7ABB0897`；
+  普通未加密 zip 不会被误判为 QC OFP。
 - 内置 Windows `openssl.exe` 为 1.0.2u，仅用于加速；其许可与 GPL-3.0 存在历史争议，可删除并回落到 pyaes。
 - 内置 Linux x86_64 / ARM64 `openssl` 均为 OpenSSL 3.5.5 构建（Apache-2.0），许可原文见 `app/licenses/OpenSSL-3-LICENSE.txt`；ARM64 静态链接 OpenSSL 库，仅依赖 glibc。
 - Windows `brotli.exe` 来自 `brotli-x64-windows-static.zip`，但 PE 导入表仍含 `VCRUNTIME140.dll` 与 Universal CRT API-set，仍需系统 VC 运行库；缺失时会回落到内置 Python 库。
@@ -295,8 +306,9 @@ A：当前 `python` 是无 Tk 数据的精简运行时。双击 `run.bat`，它�
 **Q：输出目录在哪里？**
 A：未指定时在固件同目录 `<固件名>_decrypted/`；目录已存在且非空会追加时间戳，不会覆盖旧结果。
 
-**Q：为什么选择 zip 但 OFP / OPS 仍输出 img？**
-A：只有 OZIP 有卡刷包形态；OFP / OPS 是分区镜像包，选择 zip 会提示后按 img 处理。
+**Q：为什么选择 zip 但 MTK OFP / OPS / 加密型 QC OFP 仍输出 img？**
+A：这些格式是分区镜像包，没有卡刷 zip 形态；选择 zip 会提示后按 img 处理。
+高通 QC zip 型例外：会先解压再重打包为卡刷 zip。
 
 **Q：检查更新提示网络错误 / 超时？**
 A：更新检查现在支持 GitHub / Gitee 双源，默认 GitHub。若网络无法访问对应站点，会提示网络错误或超时；
@@ -321,6 +333,18 @@ risk; the developers assume no responsibility for damage, data loss, or warranty
 <a name="history"></a>
 ## 版本记录 / Version History
 
+- **1.0.1.001**（高通 QC OFP 分支 / Qualcomm QC OFP branch）
+  - `.ofp` 不再一律按 MTK 处理：按文件结构区分 `ofp_qc_zip` / `ofp_qc` / `ofp_mtk`
+  - QC zip 型：固定密码解压分区；`--out-type zip` 下解压后重新打包
+  - QC 加密型：`0x200` / `0x1000` 页 + `0x7CEF` 尾页，6 组密钥派生 AES-CFB128 解密 XML
+  - 分区按 XML 节点导出：前 `0x40000` 字节解密、其余明文；`Sahara` 整段解密；
+    `Firmware` / `DigestsToSign` / `ChainedTableOfDigests` 直接 copy
+  - 新增输出路径安全映射、md5/sha256 校验、嵌套目录创建与同名覆盖提示
+  - `ChainedTableOfDigests` / `DigestsToSign` / `Firmware` 按 `SizeInByteInSrc`
+    截断后再 copy，避免整扇区补齐数据写进产物
+  - 已在 `RMX1851EX_11_C.18_210724` 真实 `.ofp`（9.27 GB，密钥组 #4）完成全量导出：
+    58 个文件、9.72 GB，`boot.img` / `recovery.img` 为 `ANDROID!`，`system.img` /
+    `vendor.img` / `userdata.img` 为 Android sparse，`xbl.elf` 为 ELF
 - **1.0.0.009**（ARM64 cp315 自编 wheel）
   - 新增 `build_brotli_arm64_wheel.sh` 与 `build-brotli-arm64-wheel.yml`，在 `ubuntu-24.04-arm` 上构建 cp315 aarch64 wheel
   - `_vendor_brotli` 补入自编 `brotli-1.2.0-cp315-cp315-linux_aarch64`，ARM64 vendor 覆盖 cp312–cp315

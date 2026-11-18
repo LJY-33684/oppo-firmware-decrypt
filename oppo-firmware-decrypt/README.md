@@ -3,13 +3,13 @@
 从 [mtk-garbage-porttool](https://github.com/LJY-33684/mtk-garbage-porttool-master) 中抽出的独立解密工具：
 只做一件事 —— 把 OPPO 系固件解开，得到分区镜像或标准卡刷包。
 
-- 版本：**1.0.0.009**
+- 版本：**1.0.1.001**
 - 仓库：https://github.com/LJY-33684/oppo-firmware-decrypt
-- 支持格式：**OFP（MTK）/ OZIP（Realme / OPPO）/ OPS（OnePlus）**
+- 支持格式：**OFP（MTK / 高通 QC）/ OZIP（Realme / OPPO）/ OPS（OnePlus）**
 - 平台：Windows x64（主）/ Linux x86_64（GUI + CLI）/ Linux ARM64（GUI + CLI，GUI 需 Tk）
 - Linux x86_64：随包 `app/bin/linux/x86_64/openssl`（OpenSSL 3.5.5 静态 x86_64，AES 加速）+ 随包 `app/bin/linux/x86_64/brotli`（`.new.dat.br`）；不再要求系统 `openssl`，缺失时才回退 `pyaes`
 - Linux ARM64：随包 `app/bin/linux/arm64/openssl`（OpenSSL 3.5.5 aarch64）+ 随包 `app/bin/linux/arm64/brotli`；同样优先随包组件，缺失时才回退系统 `openssl`/`brotli`
-- Python：3.10+（已在 3.15 上完成 15/15 自检；Linux 3.14 核心 13/13 通过，WSLg 真实显示下 GUI 15/15 通过；GitHub Actions `ubuntu-24.04-arm` 使用随包 ARM64 组件核心 13/13 通过）
+- Python：3.10+（源自检 18 项；Linux 无 7-Zip 时跳过 QC zip 重打包用例）
 - 许可：GPL-3.0（解密算法源自 B. Kerler 的 MIT 组件，见 `docs/THIRD_PARTY_NOTICES.md`）
 
 ## 快速开始
@@ -40,7 +40,7 @@ python main.py        # Windows
 # 默认：展开固件并转换成分区镜像
 python decrypt_cli.py decrypt --input RMX1901_11.A.20_OTA.ozip
 
-# 直接输出解密后的卡刷包（仅 OZIP 有效，不展开）
+# 直接输出解密后的卡刷包（OZIP / 高通 QC zip 型；不展开）
 python decrypt_cli.py decrypt --input RMX1901_11.A.20_OTA.ozip --out-type zip
 
 # 指定输出目录 + 落盘日志
@@ -59,7 +59,9 @@ python decrypt_cli.py --version
 | 默认输出目录 | 与固件同级的 `<固件名>_decrypted/`；该目录已存在且非空时追加 `_YYYYMMDD-HHMMSS`，不覆盖旧产物 |
 | 临时目录 | `<输出目录>/.oppo_decrypt_tmp/`，解密结束（成功或失败）自动清理 |
 | 原始固件 | 只读不动，任何情况下都不修改源文件 |
-| OFP / OPS | 始终输出分区镜像（这两种格式没有卡刷 zip 形态） |
+| MTK OFP / OPS | 始终输出分区镜像（这两种格式没有卡刷 zip 形态） |
+| 高通 QC OFP（加密型） | 输出分区镜像；选择 zip 时提示后仍按 img |
+| 高通 QC OFP（zip 型）+ zip | 解压到临时目录，再重打包为 `<原文件名>.zip`；不保留解压目录 |
 | OZIP + img | 解密 → 展开 → `*.new.dat[.br]` 转 `*.img`，中间文件（`.br/.dat/transfer.list/patch.dat`）在转换成功后清理 |
 | OZIP + zip | 只重建卡刷包，不展开、不转换，适合直接拿去刷机 |
 | OZIP 明文包 | `boot.img` 未加密的旧包会被识别为「无需解密」，原样复制为 zip |
@@ -84,7 +86,7 @@ oppo-firmware-decrypt/（源码子目录）
 │  ├─ common.py             CLI/GUI 共用（默认输出目录等）
 │  ├─ version.py            版本号唯一真源
 │  ├─ core/                 解密核心包
-│  │  ├─ oppo_decrypt.py    统一入口 decrypt() / detect_format()
+│  │  ├─ oppo_decrypt.py    统一入口 decrypt() / detect_format()（MTK / QC / OZIP / OPS）
 │  │  ├─ fsutil.py          从上游 utils.py 摘出的 _clear_attrs / _rmtree
 │  │  ├─ brotli.py          new.dat.br 解压（多后端探测）
 │  │  ├─ sdat2img.py        new.dat + transfer.list → img
@@ -94,7 +96,7 @@ oppo-firmware-decrypt/（源码子目录）
 │  ├─ bin/linux/x86_64/     Linux x86_64 openssl 3.5.5（静态单文件）+ brotli 1.1.0
 │  ├─ bin/linux/arm64/      Linux ARM64 openssl 3.5.5（静态库链接）+ brotli 1.1.0
 │  ├─ licenses/             OpenSSL / Brotli 许可原文
-│  ├─ tests/selftest.py     合成样本自检（15 项）
+│  ├─ tests/selftest.py     合成样本自检（18 项）
 │  └─ tools/                构建与组件脚本
 │     ├─ build_zip.py       发行 zip 打包脚本
 │     ├─ 获取openssl加速组件.bat
@@ -123,12 +125,12 @@ python app/tests/selftest.py
 ```
 
 用合成样本覆盖：AES 双后端一致性、brotli 解压、sdat2img 转换、格式识别、
-加密 OZIP 全链路、明文 OZIP、OFP 分区导出、OPS settings.xml 解密（MBox5）、
-CLI 契约、更新源配置、GUI 构建与端到端解密。
+加密 OZIP 全链路、明文 OZIP、MTK OFP 分区导出、高通 QC OFP（加密型 / zip 型）、
+普通 zip 拒绝、OPS settings.xml 解密（MBox5）、CLI 契约、更新源配置、GUI 构建与端到端解密。
 无 Tcl/Tk 的 Python 会自动跳过 GUI 两项并标注 SKIP。Linux 默认跳过 GUI
 （远程 X / 部分虚拟机环境会在 Tk 控件创建时触发 xcb 断言并进程级 abort）；
 确认真实桌面可用后，用 `OPPO_TEST_GUI=1 python3 app/tests/selftest.py` 显式启用。
-GitHub Actions `ubuntu-24.04-arm` 会自动跑核心 13 项（GUI 跳过），使用随包 ARM64 OpenSSL/brotli，当前 13/13 通过。
+Linux 无 7-Zip 时“QC zip 重打包”合成样本自动 SKIP，其余核心用例照常执行。
 
 ## 更新检查
 
@@ -136,15 +138,23 @@ GitHub Actions `ubuntu-24.04-arm` 会自动跑核心 13 项（GUI 跳过），�
 发行说明 markdown 渲染、GUI 弹窗全部保留。**当前 `UPDATE_ENABLED = True`，GitHub 更新源已配置**：
 `raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
 `contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 已指向
-GitHub `1.0.0.009` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
-「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；两个仓库与发行版均已创建，双源可用。
+GitHub `1.0.1.001` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
+「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；`.009` 双源已发布，
+`1.0.1.001` 待测试通过后同步。
 
 ## 已知边界
 
 - 仓库内不带真实固件样本（体积与版权原因）；发布前建议用真实 OFP / OZIP / OPS 各跑一遍，
   合成样本只能证明算法链路，不覆盖各家机型的密钥表差异。
-- OFP 解密沿用上游实现：每个分区以「加密首块（`enclength > 0`）+ 明文余下部分」布局读取，
+- MTK OFP 解密沿用上游实现：每个分区以「加密首块（`enclength > 0`）+ 明文余下部分」布局读取，
   与真实 OFP 一致；若遇到首块未加密的私有打包，需另做适配。
+- 高通 QC OFP：XML 索引来自 `0x7CEF` 尾页，6 组密钥覆盖约 2020 年以前机型；
+  分区前 `0x40000` 字节解密、其余明文，`Sahara` 整段解密，`Firmware` / `DigestsToSign` /
+  `ChainedTableOfDigests` 直接 copy。新机型可能不在密钥表内，会明确报密钥不匹配。
+- 高通 QC zip 型使用固定密码解压；普通未加密 zip 不会被误判为 QC OFP。
+- 已用 `RMX1851EX_11_C.18_210724` 真实 `.ofp`（9.27 GB，密钥组 #4）完成全量导出：
+  58 个文件 / 9.72 GB；`boot.img`、`recovery.img` 为 `ANDROID!`，`system.img` /
+  `vendor.img` / `userdata.img` 为 Android sparse 镜像，`xbl.elf` 为 ELF。
 - 内置 Windows `openssl.exe` 为 1.0.2u（Windows x64 构建），仅用于解密加速；
   其许可与 GPL-3.0 存在历史争议，介意可删除该组件，工具会自动降级 pyaes。
 - 内置 Linux x86_64 / ARM64 `openssl` 均为 OpenSSL 3.5.5 构建（Apache-2.0），仅用于 AES 加速；

@@ -8,13 +8,14 @@ selftest.py — 环境与解密链路自检（不接触真实固件，全部用�
   2. brotli 后端可用性与 .br 解压
   3. sdat2img：new.dat + transfer.list → img
   4. 单实例锁：首次上锁 / 重复获取拒绝 / 释放后重上锁
-  5. detect_format 五个分支
+  5. detect_format 分支（MTK / QC / QC zip / OZIP / OPS）
   6. PK 型加密 OZIP 全链路（含真实 AES 解密 + 重建 zip + 展开转镜像）
   7. 明文 OZIP（无 oppo_metadata、boot.img 未加密）直出卡刷包
-  8. CLI 契约：--version / 缺文件退出码 / 默认输出目录
-  9. 更新模块的 GitHub / Gitee 双更新源配置
-  10. GUI 控件构建、GitHub/Gitee 图标加载
-  11. GUI 端到端解密
+  8. 高通 QC OFP（0x7CEF 加密型）合成样本；普通 zip 不得被 QC 分支误吞
+  9. CLI 契约：--version / 缺文件退出码 / 默认输出目录
+  10. 更新模块的 GitHub / Gitee 双更新源配置
+  11. GUI 控件构建、GitHub/Gitee 图标加载
+  12. GUI 端到端解密
 
 用法：python app/tests/selftest.py
   OPPO_SKIP_GUI=1  强制跳过 GUI 两项（无头环境）
@@ -197,6 +198,7 @@ def t_singleton():
 def t_detect():
     cases = [
         ('a.ofp', b'MMM' + b'\0' * 9, 'ofp_mtk'),
+        ('qc_zip.ofp', b'PK\x03\x04' + b'\0' * 8, 'ofp_qc_zip'),
         ('b.ops', b'\0' * 12, 'ops'),
         ('c.ozip', b'OPPOENCRYPT!' + b'\0' * 12, 'ozip'),
         ('d.ozip', b'PK\x03\x04' + b'\0' * 8, 'ozip'),
@@ -353,7 +355,102 @@ def t_ofp():
     return f'{len(expect)}B 分区导出并解密一致'
 
 
-# ---------------- 6c. OPS（OnePlus）合成样本 ----------------
+# ---------------- 6c. OFP（高通 QC）合成样本 ----------------
+QC_XML = (
+    '<?xml version="1.0" encoding="utf-8"?>'
+    '<OPPSettings>'
+    '<Sahara><File Path="sub/sahara.bin" FileOffsetInSrc="1" '
+    'SizeInSectorInSrc="1" SizeInByteInSrc="256"/></Sahara>'
+    '<Firmware><File Path="firmware.bin" FileOffsetInSrc="2" '
+    'SizeInSectorInSrc="1" SizeInByteInSrc="512"/></Firmware>'
+    '<ChainedTableOfDigests><File Path="ct.bin" FileOffsetInSrc="3" '
+    'SizeInSectorInSrc="4" SizeInByteInSrc="32"/></ChainedTableOfDigests>'
+    '</OPPSettings>'
+).encode('utf-8')
+
+
+def _qc_cfb_encrypt(key, iv, data):
+    enc = pyaes.Encrypter(pyaes.AESModeOfOperationCFB(key, iv, segment_size=16))
+    return enc.feed(data) + enc.feed()
+
+
+def _build_ofp_qc(path: Path):
+    """构造一个 0x200 页、0x7CEF 尾页、XML + Sahara + Firmware 的最小 QC OFP。"""
+    key, iv = od._qc_derive_key(*od._QC_OFP_KEYS[2][1:])
+    xml = QC_XML + b' ' * (0x200 - len(QC_XML))
+    assert len(xml) == 0x200, f'QC XML 测试样本长度异常：{len(xml)}'
+    sahara_plain = bytes(range(256)) * 2
+    firmware_plain = bytes(range(256)) * 2
+    buf = bytearray(0x800)
+    buf[0x000:0x200] = _qc_cfb_encrypt(key, iv, xml)
+    buf[0x200:0x400] = _qc_cfb_encrypt(key, iv, sahara_plain)
+    buf[0x400:0x600] = firmware_plain
+    struct.pack_into('<I', buf, 0x610, 0x7CEF)
+    struct.pack_into('<I', buf, 0x614, 0)
+    struct.pack_into('<I', buf, 0x618, 0x200)
+    path.write_bytes(bytes(buf))
+
+
+def t_ofp_qc():
+    pkg = TMP / 'synthetic_qc.ofp'
+    _build_ofp_qc(pkg)
+    assert od.detect_ofp_variant(str(pkg)) == 'ofp_qc', 'QC 0x7CEF 尾页未被识别'
+    outdir = TMP / 'out_ofp_qc'
+    ok = od.decrypt(str(pkg), str(outdir), _ListLog([]), out_type='img')
+    assert ok, 'QC OFP 解密返回 False'
+    assert (outdir / 'ProFile.xml').exists(), '未生成 ProFile.xml'
+    assert (outdir / 'sub' / 'sahara.bin').exists(), '未生成嵌套分区 sub/sahara.bin'
+    assert (outdir / 'firmware.bin').exists(), '未生成 Firmware 分区'
+    assert (outdir / 'sub' / 'sahara.bin').read_bytes() == bytes(range(256)), \
+        'Sahara 前 256B 解密结果不符'
+    assert (outdir / 'firmware.bin').read_bytes() == bytes(range(256)) * 2, \
+        'Firmware copy 结果不符'
+    assert (outdir / 'ct.bin').stat().st_size == 32, \
+        'ChainedTableOfDigests 未按 SizeInByteInSrc 截断（复制了整扇区）'
+    return 'QC OFP XML 解密、Sahara 解密、Firmware copy、Chained 截断与嵌套目录均正常'
+
+
+def t_ofp_qc_zip_reject():
+    pkg = TMP / 'plain_zip.ofp'
+    with zipfile.ZipFile(pkg, 'w') as z:
+        z.writestr('boot.img', b'plain zip, not QC OFP')
+    outdir = TMP / 'out_qc_zip_reject'
+    ok = od.decrypt(str(pkg), str(outdir), _ListLog([]), out_type='img')
+    assert not ok, '普通 zip 被 QC 分支误吞'
+    assert not (outdir / 'boot.img').exists(), '普通 zip 条目被错误写出'
+    return '普通 zip 被明确拒绝，未写出条目'
+
+
+def t_ofp_qc_zip():
+    seven = next((p for p in (
+        r'C:\Program Files\7-Zip\7z.exe',
+        r'C:\Program Files (x86)\7-Zip\7z.exe',
+    ) if os.path.isfile(p)), None)
+    if not seven:
+        raise Skip('本机无 7-Zip，跳过加密 QC zip 样本构造')
+    src = TMP / 'qc_zip_src'
+    src.mkdir(exist_ok=True)
+    (src / 'boot.img').write_bytes(b'hello QC zip')
+    pkg = TMP / 'synthetic_qc_zip.ofp'
+    if pkg.exists():
+        pkg.unlink()
+    r = subprocess.run(
+        [seven, 'a', '-tzip', '-p' + od._QC_ZIP_PASSWORD.decode(),
+         '-mem=ZipCrypto', str(pkg), 'boot.img'],
+        cwd=str(src), capture_output=True, text=True, encoding='utf-8')
+    assert r.returncode == 0, f'7-Zip 构造加密 QC zip 失败：{r.stdout[-300:]}'
+    assert od.detect_ofp_variant(str(pkg)) == 'ofp_qc_zip', 'QC zip 未被识别'
+    outdir = TMP / 'out_qc_zip'
+    ok = od.decrypt(str(pkg), str(outdir), _ListLog([]), out_type='zip')
+    assert ok, 'QC zip 解密/重打包返回 False'
+    outs = list(outdir.glob('*.zip'))
+    assert outs, 'QC zip 未输出重打包产物'
+    with zipfile.ZipFile(outs[0]) as z:
+        assert z.read('boot.img') == b'hello QC zip', 'QC zip 解压后重打包内容不符'
+    return f'{outs[0].name} 解压后重打包成功'
+
+
+# ---------------- 6d. OPS（OnePlus）合成样本 ----------------
 def _build_ops(path: Path):
     xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
            '<OPPSettings><UFS_PROVISION>'
@@ -501,6 +598,9 @@ def main():
     check('加密 OZIP → 镜像展开', t_ozip_img)
     check('明文 OZIP 直出', t_ozip_plain)
     check('OFP → 分区导出', t_ofp)
+    check('高通 QC OFP → 分区导出', t_ofp_qc)
+    check('高通 QC OFP zip → 重打包', t_ofp_qc_zip)
+    check('普通 zip 不得被 QC 误吞', t_ofp_qc_zip_reject)
     check('OPS → 分区导出', t_ops)
     check('CLI 契约', t_cli)
     check('GitHub / Gitee 更新源配置', t_update)

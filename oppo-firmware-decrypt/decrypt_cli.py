@@ -10,7 +10,7 @@ OPPO / Realme / OnePlus 固件解密工具 —— 命令行入口 (CLI Bridge)
 接口规范详见 docs/INTERFACE.md。
 
 子命令：
-  decrypt       固件解密（OFP / OZIP / OPS；img 展开转镜像 / zip 直出卡刷包）
+  decrypt       固件解密（OFP(MTK/QC) / OZIP / OPS；img 展开转镜像 / zip 直出卡刷包）
 
 顶层查询：
   --version     输出版本号
@@ -69,7 +69,7 @@ class TeeLog:
 
 
 # ============================================================
-# decrypt 子命令：OPPO/Realme/OnePlus 固件解密（OFP/OZIP/OPS）
+# decrypt 子命令：OPPO/Realme/OnePlus 固件解密（OFP(MTK/QC) / OZIP / OPS）
 # ============================================================
 def cmd_decrypt(a, log):
     from app.core import oppo_decrypt
@@ -113,7 +113,7 @@ def build_parser():
                     help='输出目录（默认：固件同目录 <固件名>_decrypted/）')
     sd.add_argument('--out-type', choices=['img', 'zip'], default='img',
                     help='输出类型：img（默认，展开并转换成分区镜像）'
-                         '| zip（OZIP 直接输出解密后的卡刷包，不展开）')
+                         '| zip（OZIP / 高通 QC zip 型直接输出解密后的卡刷包，不展开）')
     sd.add_argument('--log-file', default='', help='额外日志文件（stdout 照常输出）')
     return p
 

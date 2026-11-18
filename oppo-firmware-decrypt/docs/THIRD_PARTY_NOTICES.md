@@ -13,12 +13,15 @@
 | 原文件 | 功能 | 版权 |
 |---|---|---|
 | `ofp_mtk_decrypt.py` | OPPO MTK OFP 固件解密（AES-CFB128） | Copyright (c) 2022 B. Kerler |
+| `ofp_qc_decrypt.py` | OPPO / Realme 高通 QC OFP 固件解密（AES-CFB128 + ZipCrypto） | Copyright (c) 2022 B. Kerler |
 | `ozipdecrypt.py` | Realme / OPPO OZIP 固件解密（AES-ECB） | Copyright (c) 2017-2020 B. Kerler |
 | `opscrypto.py` | OnePlus OPS 固件解包（自定义流密码） | Copyright (c) 2019-2021 B. Kerler |
 
 来源仓库：<https://github.com/bkerler/OPPO_Decrypt_Tools>
-（经 <https://github.com/ColdWindScholar/TIK> 集成，再经 mtk-garbage-porttool 合并为三合一模块）。
+（经 <https://github.com/ColdWindScholar/TIK> 集成，再经 mtk-garbage-porttool 合并为多格式模块）。
 本工具在抽取时仅改动了包内引用、临时目录位置与文件头说明，解密算法未改动。
+高通 QC 部分未照抄上游的 `exit(0)`、裸 `except:` 与对用户输出目录 `shutil.rmtree`，
+只清理工具自己的临时目录。
 
 ## 2. pyaes（纯 Python AES 实现）
 

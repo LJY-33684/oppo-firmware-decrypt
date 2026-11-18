@@ -222,7 +222,7 @@ class App(tk.Tk):
         type_box.pack(fill='x', pady=(0, 8))
         ttk.Radiobutton(type_box, text='img：展开固件并转换成分区镜像（默认）',
                         value='img', variable=self.out_type_var).pack(anchor='w', padx=10, pady=(8, 0))
-        ttk.Radiobutton(type_box, text='zip：直接输出解密后的卡刷包（仅 OZIP 有效）',
+        ttk.Radiobutton(type_box, text='zip：直接输出解密后的卡刷包（OZIP / 高通 QC zip 型）',
                         value='zip', variable=self.out_type_var).pack(anchor='w', padx=10, pady=(2, 8))
 
         # 输出目录
@@ -381,7 +381,7 @@ class App(tk.Tk):
     def _set_fw(self, path):
         self.fw_var.set(path)
         fmt = oppo_decrypt.detect_format(path)
-        self.format_var.set('识别格式：' + (FORMAT_LABELS.get(fmt, '无法识别（非 OFP/OZIP/OPS）')))
+        self.format_var.set('识别格式：' + (FORMAT_LABELS.get(fmt, '无法识别（非 OFP / OZIP / OPS）')))
         current = self.outdir_var.get().strip()
         if (not current) or current == self._auto_outdir:
             self._auto_outdir = default_outdir(path)
@@ -422,9 +422,9 @@ class App(tk.Tk):
             return
         outdir = self.outdir_var.get().strip().strip('"') or default_outdir(fw)
         out_type = self.out_type_var.get()
-        if out_type == 'zip' and fmt != 'ozip':
-            messagebox.showinfo('提示', 'zip 输出仅对 OZIP 生效：\n'
-                                        'OFP/OPS 为分区镜像流，本次仍按 img 输出。')
+        if out_type == 'zip' and fmt not in ('ozip', 'ofp_qc_zip'):
+            messagebox.showinfo('提示', 'zip 输出仅对 OZIP 或高通 QC zip 型生效：\n'
+                                        'MTK OFP / OPS / 加密型 QC OFP 为分区镜像流，本次仍按 img 输出。')
 
         self._running = True
         self.start_btn.configure(state='disabled', text='解密中…')

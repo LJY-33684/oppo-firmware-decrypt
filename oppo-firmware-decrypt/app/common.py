@@ -7,6 +7,8 @@ from pathlib import Path
 # 固件格式 → 界面显示名
 FORMAT_LABELS = {
     'ofp_mtk': 'OFP（MTK）',
+    'ofp_qc': 'OFP（高通 QC）',
+    'ofp_qc_zip': 'OFP（高通 QC / zip 型）',
     'ozip': 'OZIP（Realme / OPPO）',
     'ops': 'OPS（OnePlus）',
 }
