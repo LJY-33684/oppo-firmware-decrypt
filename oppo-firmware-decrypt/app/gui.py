@@ -14,6 +14,7 @@ import queue
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import tkinter as tk
 import webbrowser
@@ -131,6 +132,7 @@ class App(tk.Tk):
         self._auto_outdir = ''
         self._poll_id = None
         self.repo_icons = []
+        self._update_btn = None
 
         self.fw_var = tk.StringVar()
         self.outdir_var = tk.StringVar()
@@ -347,6 +349,9 @@ class App(tk.Tk):
         done = None
         backend = None
         update = None
+        update_progress = None
+        update_failed = None
+        update_ready = None
         while True:
             try:
                 kind, payload = self.q.get_nowait()
@@ -360,6 +365,12 @@ class App(tk.Tk):
                 backend = payload
             elif kind == 'update':
                 update = payload
+            elif kind == 'update_progress':
+                update_progress = payload
+            elif kind == 'update_failed':
+                update_failed = payload
+            elif kind == 'update_ready':
+                update_ready = payload
         if chunks:
             self._append_log(''.join(chunks))
         if backend:
@@ -368,6 +379,13 @@ class App(tk.Tk):
             self._on_done(*done)
         if update:
             self._on_update_result(update)
+        if update_progress:
+            self._on_update_progress(*update_progress)
+        if update_failed:
+            self._on_update_failed(*update_failed)
+        if update_ready:
+            self._on_update_ready(*update_ready)
+            return
         self._poll_id = self.after(80, self._poll_queue)
 
     # ---------------- 选择文件 ----------------
@@ -488,27 +506,45 @@ class App(tk.Tk):
         if not result.ok:
             messagebox.showinfo('检查更新', f'{result.reason}')
             return
-        self._show_update_dialog(result.tag, result.body, result.download_url)
+        status = updater.version_status(result.tag, __version__)
+        self._show_update_dialog(result.tag, result.body, result.download_url,
+                                 status, result.sha256)
 
-    def _show_update_dialog(self, tag, body, download_url):
+    def _show_update_dialog(self, tag, body, download_url, status='unknown', sha256=None):
         win = tk.Toplevel(self)
-        win.title(('当前已是最新版本 - ' if tag == __version__ else '发现新版本 - ') + str(tag))
+        if status == 'older':
+            win.title(f'本地版本高于发行版 - {tag}')
+        elif status == 'same':
+            win.title(f'当前已是最新版本 - {tag}')
+        else:
+            win.title(f'发现新版本 - {tag}')
         win.geometry('660x500')
         win.transient(self)
         win.grab_set()
 
         header = ttk.Frame(win)
         header.pack(fill='x', padx=12, pady=(10, 5))
-        ttk.Label(header, text=(f'当前已是最新版本：{tag}' if tag == __version__
-                                else f'发现新版本：{tag}'),
-                  font=(UI_FAMILY, 10, 'bold')).pack(side='left')
+        if status == 'older':
+            title_text = f'本地版本高于发行版：{tag}（当前 {__version__}）'
+        elif status == 'same':
+            title_text = f'当前已是最新版本：{tag}'
+        else:
+            title_text = f'发现新版本：{tag}'
+        ttk.Label(header, text=title_text, font=(UI_FAMILY, 10, 'bold')).pack(side='left')
 
         def open_download():
             if download_url:
-                import webbrowser
                 webbrowser.open(download_url)
 
-        ttk.Button(header, text='前往下载', command=open_download).pack(side='right')
+        # 远端版本更旧时不提供下载入口，避免用户主动降级
+        if status != 'older' and download_url:
+            ttk.Button(header, text='前往下载', command=open_download).pack(side='right')
+            if status == 'newer':
+                install_btn = ttk.Button(header, text='下载并安装')
+                install_btn.pack(side='right', padx=(0, 6))
+                install_btn.config(
+                    command=lambda: self._start_self_update(win, install_btn, download_url, sha256))
+                self._update_btn = install_btn
 
         content = ttk.Frame(win)
         content.pack(fill='both', expand=True, padx=12, pady=(0, 10))
@@ -519,6 +555,89 @@ class App(tk.Tk):
         text.pack(side='left', fill='both', expand=True)
         updater.render_markdown(text, body)
         text.configure(state='disabled')
+
+    # ---------------- 程序内自更新 ----------------
+    def _start_self_update(self, win, btn, download_url, sha256=None):
+        """主线程：点击“下载并安装”，后台下载/校验/启动替换脚本。"""
+        if self._running:
+            messagebox.showwarning(
+                '更新暂不可用',
+                '解密任务正在执行。请等待当前任务结束，再下载并安装更新，避免文件被占用或任务被中断。',
+                parent=win,
+            )
+            return
+        btn.config(text='准备下载…', state='disabled')
+        threading.Thread(
+            target=self._self_update_worker,
+            args=(win, btn, download_url, sha256),
+            daemon=True,
+        ).start()
+
+    def _self_update_worker(self, win, btn, download_url, sha256=None):
+        """后台线程：下载 -> 校验解压 -> 启动替换脚本。"""
+        zip_path = os.path.join(tempfile.gettempdir(), 'oppo_firmware_decrypt_update.zip')
+        stage_root = None
+        try:
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+
+            def on_progress(got, total):
+                pct = int(got * 100 / total) if total else 0
+                self.q.put(('update_progress', (pct, None)))
+
+            updater.download_update(
+                download_url, zip_path, progress=on_progress, expected_sha256=sha256)
+            self.q.put(('update_progress', (100, '校验中…')))
+            stage_root = updater.stage_update(zip_path)
+            updater.launch_update_installer(stage_root, zip_path)
+        except Exception as e:
+            if stage_root:
+                shutil.rmtree(stage_root, ignore_errors=True)
+            try:
+                if os.path.exists(zip_path):
+                    os.remove(zip_path)
+            except OSError:
+                pass
+            self.q.put(('update_failed', (win, btn, str(e))))
+            return
+        self.q.put(('update_ready', (win,)))
+
+    def _on_update_progress(self, pct, text=None):
+        btn = self._update_btn
+        try:
+            if btn and btn.winfo_exists():
+                btn.config(text=text or f'下载中 {pct}%')
+        except Exception:
+            pass
+
+    def _on_update_failed(self, win, btn, err):
+        try:
+            if btn.winfo_exists():
+                btn.config(text='下载并安装', state='normal')
+        except Exception:
+            pass
+        messagebox.showerror(
+            '自动更新失败',
+            f'更新失败：{err}\n\n可点击“前往下载”手动下载。',
+            parent=win,
+        )
+
+    def _on_update_ready(self, win):
+        messagebox.showinfo(
+            '更新已就绪',
+            '更新包已下载并校验通过。程序将退出，自动替换文件后重新启动。',
+            parent=win,
+        )
+        try:
+            win.grab_release()
+            win.destroy()
+        except Exception:
+            pass
+        try:
+            self.destroy()
+        except Exception:
+            pass
+        os._exit(0)
 
     # ---------------- 关闭 ----------------
     def destroy(self):

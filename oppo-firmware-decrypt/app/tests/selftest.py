@@ -22,6 +22,8 @@ selftest.py — 环境与解密链路自检（不接触真实固件，全部用�
   OPPO_TEST_GUI=1  Linux 下显式启用 GUI 两项（仅确认真实桌面可用时）
 退出码：0 全部通过；1 存在失败项
 """
+import hashlib
+import http.server
 import os
 import platform
 import shutil
@@ -29,6 +31,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import zipfile
 from pathlib import Path
 
@@ -40,6 +43,7 @@ from app.core import oppo_decrypt as od   # noqa: E402
 from app.core import pyaes                # noqa: E402
 from app.core import brotli               # noqa: E402
 from app.core import sdat2img             # noqa: E402
+from app import updater as up              # noqa: E402
 from app.version import __version__ as VERSION  # noqa: E402
 
 RESULTS = []
@@ -276,6 +280,55 @@ def t_ozip_img():
     return f'展开 {len(list(outdir.iterdir()))} 个条目，无残留临时目录'
 
 
+def t_decrypt_guards():
+    """磁盘空间预检 / .tmp 异常清理 / openssl 超时三条边界。"""
+    sample = TMP / 'guard_ozip.bin'
+    sample.write_bytes(_ozip_encrypted_file(b'\0' * 16))
+    logs = []
+
+    # 1) AES 抛异常：必须返回 False，且不能留下 .tmp
+    original_aes = od.aes_ecb_decrypt
+    def boom(key, data):
+        raise RuntimeError('guard probe')
+    od.aes_ecb_decrypt = boom
+    try:
+        assert od._ozip_decryptfile(OZIP_KEY, str(sample), logs.append) is False
+    finally:
+        od.aes_ecb_decrypt = original_aes
+    assert sample.exists(), '异常后源文件不应被删除'
+    assert not Path(str(sample) + '.tmp').exists(), '异常后 .tmp 未清理'
+
+    # 2) 磁盘空间不足：必须在写 .tmp 前拒绝
+    logs.clear()
+    original_disk = od.shutil.disk_usage
+    od.shutil.disk_usage = lambda _p: type('D', (), {'free': 0})()
+    try:
+        assert od._ozip_decryptfile(OZIP_KEY, str(sample), logs.append) is False
+    finally:
+        od.shutil.disk_usage = original_disk
+    assert any('磁盘空间不足' in s for s in logs), '未给出磁盘空间不足提示'
+    assert not Path(str(sample) + '.tmp').exists(), '空间不足时不应创建 .tmp'
+
+    # 3) openssl 子进程超时：转成可读 RuntimeError
+    original_openssl = od._OPENSSL
+    original_run = od.subprocess.run
+    od._OPENSSL = 'openssl-guard'
+    def timeout_run(*args, **kwargs):
+        raise od.subprocess.TimeoutExpired('openssl-guard', 120)
+    od.subprocess.run = timeout_run
+    try:
+        try:
+            od._openssl_decrypt('aes-128-ecb', OZIP_KEY, None, b'\0' * 16)
+        except RuntimeError as e:
+            assert 'openssl 解密超时' in str(e), str(e)
+        else:
+            raise AssertionError('openssl 超时未转成 RuntimeError')
+    finally:
+        od._OPENSSL = original_openssl
+        od.subprocess.run = original_run
+    return '异常清理 / 空间预检 / openssl 超时 均通过'
+
+
 class _ListLog:
     def __init__(self, sink):
         self.sink = sink
@@ -510,20 +563,120 @@ def t_cli():
 
 # ---------------- 8. 更新模块 ----------------
 def t_update():
-    from app import updater
-    assert updater.UPDATE_ENABLED is True, '更新总开关未启用'
-    assert updater.is_configured('GitHub'), 'GitHub 更新源未配置'
-    cfg = updater.UPDATE_SOURCES['GitHub']
+    assert up.UPDATE_ENABLED is True, '更新总开关未启用'
+    assert up.is_configured('GitHub'), 'GitHub 更新源未配置'
+    cfg = up.UPDATE_SOURCES['GitHub']
     assert cfg['raw'].startswith('https://raw.githubusercontent.com/'), cfg['raw']
     assert '{tag}' in cfg['api'], cfg['api']
     assert cfg['contents_api'].startswith('https://api.github.com/'), cfg['contents_api']
 
-    assert updater.is_configured('Gitee'), 'Gitee 更新源未配置'
-    gitee = updater.UPDATE_SOURCES['Gitee']
+    assert up.is_configured('Gitee'), 'Gitee 更新源未配置'
+    gitee = up.UPDATE_SOURCES['Gitee']
     assert gitee['raw'].startswith('https://gitee.com/'), gitee['raw']
     assert 'gitee.com/api/v5/' in gitee['api'], gitee['api']
     assert '{tag}' in gitee['api'], gitee['api']
     return 'GitHub / Gitee 双更新源地址已配置'
+
+
+def t_update_versions():
+    assert up.parse_version('v1.0.1.006') == (1, 0, 1, 6)
+    assert up.compare_versions('1.0.1.006', '1.0.1.5') == 1
+    assert up.compare_versions('1.0.1', '1.0.1.000') == 0
+    assert up.version_status('1.0.1.005', '1.0.1.006') == 'older'
+    assert up.version_status('1.0.1.006', '1.0.1.006') == 'same'
+    assert up.version_status('1.0.1.007', '1.0.1.006') == 'newer'
+    return '版本比较 / 新旧状态判定正常'
+
+
+def t_update_download():
+    payload = b'PK\x03\x04' + b'oppo-update-payload' * 4096
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    dest = TMP / 'upd_download.zip'
+    try:
+        url = f'http://127.0.0.1:{server.server_port}/upd.zip'
+        digest = hashlib.sha256(payload).hexdigest()
+        up.download_update(url, str(dest), expected_sha256=digest)
+        assert dest.read_bytes() == payload, '下载内容不一致'
+        try:
+            up.download_update(url, str(dest), expected_sha256='0' * 64)
+        except ValueError as e:
+            assert 'SHA256 不匹配' in str(e), str(e)
+        else:
+            raise AssertionError('错误 SHA256 未被拒绝')
+        assert not dest.exists(), 'SHA256 校验失败后未删除下载文件'
+    finally:
+        server.shutdown()
+        server.server_close()
+    return 'http 下载 / SHA256 校验 / 失败删除正常'
+
+
+def t_update_stage():
+    good = TMP / 'upd_good.zip'
+    with zipfile.ZipFile(good, 'w') as z:
+        z.writestr('oppo-firmware-decrypt/main.py', 'print("ok")\n')
+        z.writestr('oppo-firmware-decrypt/run.bat', '@echo off\n')
+        z.writestr('oppo-firmware-decrypt/run.sh', '#!/bin/sh\n')
+        z.writestr('oppo-firmware-decrypt/app/core/oppo_decrypt.py', '# stub\n')
+    stage = Path(up.stage_update(str(good)))
+    assert (stage / 'main.py').is_file(), '解压后缺少 main.py'
+    shutil.rmtree(stage, ignore_errors=True)
+
+    bad = TMP / 'upd_bad.zip'
+    with zipfile.ZipFile(bad, 'w') as z:
+        z.writestr('oppo-firmware-decrypt/../evil.py', 'bad\n')
+    created = []
+    original_mkdtemp = up.tempfile.mkdtemp
+
+    def recording_mkdtemp(*args, **kwargs):
+        path = original_mkdtemp(*args, **kwargs)
+        created.append(path)
+        return path
+
+    up.tempfile.mkdtemp = recording_mkdtemp
+    try:
+        try:
+            up.stage_update(str(bad))
+        except ValueError as e:
+            assert '非法路径' in str(e), str(e)
+        else:
+            raise AssertionError('路径穿越未被拒绝')
+    finally:
+        up.tempfile.mkdtemp = original_mkdtemp
+    assert created and all(not Path(p).exists() for p in created), '拒绝坏包后临时目录未清理'
+    return '合法包解压 / 路径穿越拒绝并清理正常'
+
+
+def t_update_backup():
+    app_root = TMP / 'upd_app'
+    backup = TMP / 'upd_app.backup'
+    (app_root / 'app').mkdir(parents=True)
+    (app_root / 'main.py').write_text('print("ok")\n', encoding='utf-8')
+    (app_root / 'app' / 'version.py').write_text("__version__='x'\n", encoding='utf-8')
+    (app_root / 'out').mkdir()
+    (app_root / 'out' / 'big.bin').write_bytes(b'\0' * 1024)
+    (app_root / '.oppo_decrypt_tmp').mkdir()
+    (app_root / '.oppo_decrypt_tmp' / 'work.tmp').write_bytes(b'x')
+
+    up.prepare_update_backup(app_root, backup)
+    assert (backup / 'main.py').is_file(), '备份缺少 main.py'
+    assert (backup / 'app' / 'version.py').is_file(), '备份缺少源码'
+    assert not (backup / 'out').exists(), '备份不应包含 out/'
+    assert not (backup / '.oppo_decrypt_tmp').exists(), '备份不应包含解密临时目录'
+    shutil.rmtree(app_root, ignore_errors=True)
+    shutil.rmtree(backup, ignore_errors=True)
+    return '备份保留源码 / 跳过运行时目录正常'
 
 
 # ---------------- 9. GUI ----------------
@@ -599,6 +752,7 @@ def main():
     check('单实例锁', t_singleton)
     check('固件格式识别', t_detect)
     check('加密 OZIP → 卡刷包', t_ozip_encrypted)
+    check('解密边界：空间 / .tmp / 超时', t_decrypt_guards)
     check('加密 OZIP → 镜像展开', t_ozip_img)
     check('明文 OZIP 直出', t_ozip_plain)
     check('OFP → 分区导出', t_ofp)
@@ -608,6 +762,10 @@ def main():
     check('OPS → 分区导出', t_ops)
     check('CLI 契约', t_cli)
     check('GitHub / Gitee 更新源配置', t_update)
+    check('更新版本比较', t_update_versions)
+    check('更新包下载与 SHA256', t_update_download)
+    check('更新包解压与路径校验', t_update_stage)
+    check('自更新备份跳过运行时', t_update_backup)
     gui_skip_reason = None
     if SKIP_GUI:
         gui_skip_reason = 'OPPO_SKIP_GUI=1'

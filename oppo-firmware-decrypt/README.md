@@ -3,13 +3,13 @@
 从 [mtk-garbage-porttool](https://github.com/LJY-33684/mtk-garbage-porttool-master) 中抽出的独立解密工具：
 只做一件事 —— 把 OPPO 系固件解开，得到分区镜像或标准卡刷包。
 
-- 版本：**1.0.1.003**
+- 版本：**1.0.1.006**
 - 仓库：https://github.com/LJY-33684/oppo-firmware-decrypt
 - 支持格式：**OFP（MTK / 高通 QC）/ OZIP（Realme / OPPO）/ OPS（OnePlus）**
 - 平台：Windows x64（主）/ Linux x86_64（GUI + CLI）/ Linux ARM64（GUI + CLI，GUI 需 Tk）
 - Linux x86_64：随包 `app/bin/linux/x86_64/openssl`（OpenSSL 3.5.5 静态 x86_64，AES 加速）+ 随包 `app/bin/linux/x86_64/brotli`（`.new.dat.br`）；不再要求系统 `openssl`，缺失时才回退 `pyaes`
 - Linux ARM64：随包 `app/bin/linux/arm64/openssl`（OpenSSL 3.5.5 aarch64）+ 随包 `app/bin/linux/arm64/brotli`；同样优先随包组件，缺失时才回退系统 `openssl`/`brotli`
-- Python：3.10+（源自检 18 项；Linux 无 7-Zip 时跳过 QC zip 重打包用例）
+- Python：3.10+（源自检 23 项；Linux 无 7-Zip 时跳过 QC zip 重打包用例）
 - 许可：GPL-3.0（解密算法源自 B. Kerler 的 MIT 组件，见 `docs/THIRD_PARTY_NOTICES.md`）
 
 ## 快速开始
@@ -96,7 +96,7 @@ oppo-firmware-decrypt/（源码子目录）
 │  ├─ bin/linux/x86_64/     Linux x86_64 openssl 3.5.5（静态单文件）+ brotli 1.1.0
 │  ├─ bin/linux/arm64/      Linux ARM64 openssl 3.5.5（静态库链接）+ brotli 1.1.0
 │  ├─ licenses/             OpenSSL / Brotli 许可原文
-│  ├─ tests/selftest.py     合成样本自检（18 项）
+│  ├─ tests/selftest.py     合成样本自检（23 项）
 │  └─ tools/                构建与组件脚本
 │     ├─ build_zip.py       发行 zip 打包脚本
 │     ├─ 获取openssl加速组件.bat
@@ -135,11 +135,13 @@ Linux 无 7-Zip 时“QC zip 重打包”合成样本自动 SKIP，其余核心�
 ## 更新检查
 
 `app/updater.py` 复用自 mtk-garbage-porttool：网络请求、`latest_version.txt` 解析、
-发行说明 markdown 渲染、GUI 弹窗全部保留。**当前 `UPDATE_ENABLED = True`，GitHub 更新源已配置**：
-`raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
-`contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 已指向
-GitHub `1.0.1.003` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
-「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；`1.0.1.003` 已双源发布。
+发行说明 markdown 渲染、版本比较、更新包 SHA256 校验与 GUI 自更新全部保留。
+**当前 `UPDATE_ENABLED = True`，GitHub 更新源已配置**：`raw` 指向仓库 `main` 分支的
+`latest_version.txt`，`api` 指向 Releases API，`contents_api` 用于绕过 CDN 缓存；
+`latest_version.txt` 的 `update_url_1` 已指向 GitHub `1.0.1.006` Release 资产，
+`update_url_2` 指向 Gitee 同版本资产。GUI 底部「更新源」下拉框可在 GitHub / Gitee 间切换；
+发现新版本时可「下载并安装」，程序会校验 SHA256、备份当前目录（跳过 `out/` 等运行时产物）
+后自动替换并重启。
 
 ## 已知边界
 

@@ -1,11 +1,11 @@
 # OPPO 固件解密工具 / OPPO Firmware Decrypt Tool
 
-> 当前版本 / Current version：**1.0.1.003**
+> 当前版本 / Current version：**1.0.1.006**
 
 > **仓库地址 / Repository：**
 > - **GitHub**：https://github.com/LJY-33684/oppo-firmware-decrypt
 > - **Gitee 镜像**：https://gitee.com/Q3368436451/oppo-firmware-decrypt
-> - **Gitee 发行版**：https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.1.003
+> - **Gitee 发行版**：https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.1.006
 
 ## 目录 / Table of Contents
 
@@ -98,12 +98,15 @@ OPS**, provides both GUI and CLI, and never modifies the source firmware.
 - **7. 界面细节 / UI details**
   - 底部版本号旁提供 GitHub / Gitee 图标，点击用系统浏览器打开
   - 底部「更新源」下拉框支持 GitHub / Gitee 双源切换，默认 GitHub
+  - 发现新版本时可「下载并安装」：校验 `update_sha256`、限制 300 MiB、
+    拦截 zip 路径穿越，备份时跳过 `out/` 等运行时产物
   - 保留移植工具同款橙色刷机风险提示
   - 圆形蒙板窗口图标（多尺寸 ICO，圆外透明）
 
 - **8. 自检 / Self-test**
-  - 18 项合成样本自检：AES 双后端、brotli、sdat2img、fsutil、单实例锁、
-    格式识别、OZIP / MTK OFP / 高通 QC OFP / OPS 解密、CLI 契约、更新源配置、GUI 冒烟与端到端
+  - 23 项合成样本自检：AES 双后端、brotli、sdat2img、fsutil、单实例锁、
+    格式识别、OZIP / MTK OFP / 高通 QC OFP / OPS 解密、CLI 契约、更新源配置、
+    版本比较、下载 SHA256、解压校验、备份瘦身、GUI 冒烟与端到端
   - Linux 默认跳过 GUI 两项（避免远程 X 的 xcb 进程级 abort）；确认真实桌面后设 `OPPO_TEST_GUI=1` 启用
   - 无 7-Zip 时跳过“加密 QC zip 重打包”合成样本，其余核心用例仍会执行
 
@@ -148,7 +151,7 @@ oppo-firmware-decrypt/
    │  ├─ bin/linux/x86_64/   Linux x86_64 OpenSSL 静态版 + brotli
    │  ├─ bin/linux/arm64/    Linux ARM64 OpenSSL 静态库链接版 + brotli
    │  ├─ licenses/          OpenSSL / Brotli 许可原文
-   │  ├─ tests/selftest.py   合成样本自检（18 项）
+   │  ├─ tests/selftest.py   合成样本自检（23 项）
    │  └─ tools/              build_zip.py + 获取 openssl/brotli 组件脚本
    ├─ docs/                  INTERFACE.md / THIRD_PARTY_NOTICES.md / 界面截图
    ├─ README.md              使用说明、输出约定、已知边界
@@ -252,19 +255,20 @@ python decrypt_cli.py --version
 ## 更新检查 / Update Check
 
 更新模块复用自 mtk-garbage-porttool：网络请求、`latest_version.txt` 解析、发行说明 markdown
-渲染与 GUI 弹窗全部保留。当前 **`UPDATE_ENABLED = True`，GitHub 更新源已配置**：
-`raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向 Releases API，
-`contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1` 指向
-GitHub `1.0.1.003` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
-「更新源」下拉框可在 GitHub / Gitee 间切换，默认 GitHub；`1.0.1.003` 已双源发布。
+渲染、版本比较、更新包 SHA256 校验与 GUI 自更新全部保留。当前 **`UPDATE_ENABLED = True`，
+GitHub 更新源已配置**：`raw` 指向仓库 `main` 分支的 `latest_version.txt`，`api` 指向
+Releases API，`contents_api` 用于绕过 CDN 缓存；`latest_version.txt` 的 `update_url_1`
+指向 GitHub `1.0.1.006` Release 资产，`update_url_2` 指向 Gitee 同版本资产。GUI 底部
+「更新源」下拉框可在 GitHub / Gitee 间切换；发现新版本时可「下载并安装」，程序会校验
+SHA256、备份当前目录（跳过 `out/` 等运行时产物）后自动替换并重启。
 
 <a name="release"></a>
 ## 发行包 / Release Package
 
-发行资产命名：`oppo-firmware-decrypt-1.0.1.003.zip`，zip 内根目录为 `oppo-firmware-decrypt/`，
+发行资产命名：`oppo-firmware-decrypt-1.0.1.006.zip`，zip 内根目录为 `oppo-firmware-decrypt/`，
 解压后 Windows 可直接 `run.bat`、Linux 可直接 `./run.sh` 启动。上一版发布页：
-- GitHub：[`1.0.0.009`](https://github.com/LJY-33684/oppo-firmware-decrypt/releases/tag/1.0.0.009)
-- Gitee：[`1.0.0.009`](https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.0.009)
+- GitHub：[`1.0.1.003`](https://github.com/LJY-33684/oppo-firmware-decrypt/releases/tag/1.0.1.003)
+- Gitee：[`1.0.1.003`](https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/tag/1.0.1.003)
 
 打包命令：
 
@@ -333,6 +337,16 @@ risk; the developers assume no responsibility for damage, data loss, or warranty
 <a name="history"></a>
 ## 版本记录 / Version History
 
+- **1.0.1.006**（解密健壮性 + 更新模块对齐）
+  - PK 型 OZIP 解密前按 `dsize * 1.2` 预检输出目录剩余空间，不足时直接报错
+  - 解密异常时回收 `rfilename + ".tmp"`，成功后改用 `os.replace()` 原子替换
+  - 调用点检查解密返回值，失败中止而不是继续写 zip
+  - `_openssl_decrypt()` 增加 120 秒超时，卡死时终止子进程并给出可读错误
+  - 更新检查改用版本元组比较，远端更旧 / 相同 / 更新分别给出明确提示
+  - 支持 `update_sha256` 校验、300 MiB 下载上限、更新包路径穿越拦截
+  - 新增「下载并安装」：备份程序目录时跳过 `out/`、`.oppo_decrypt_tmp/` 等运行时产物，
+    覆盖失败只回滚代码，不删除用户输出
+  - 新增 7 条自检：解密边界 3 条 + 更新版本比较 / 下载 SHA256 / 解压校验 / 备份瘦身
 - **1.0.1.003**（QC 报错文案 / OFP 结构兜底修正）
   - QC 密钥未命中时改为明确提示“未命中内置密钥表”，不再按 2020 年份推断支持范围
   - `detect_format` 增加 OFP 结构兜底：`.ofp` 改名为 `.bin` 后仍可通过 PK 头 /
