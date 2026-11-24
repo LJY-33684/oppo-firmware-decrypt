@@ -1,4 +1,4 @@
 latest_version=1.0.1.006
 update_url_1=https://github.com/LJY-33684/oppo-firmware-decrypt/releases/download/1.0.1.006/oppo-firmware-decrypt-1.0.1.006.zip
 update_url_2=https://gitee.com/Q3368436451/oppo-firmware-decrypt/releases/download/1.0.1.006/oppo-firmware-decrypt-1.0.1.006.zip
-update_sha256=c48e0384e74eda27b7443f54162a697e2d69a262bb28316d63f81caee8f39c4e
+update_sha256=ddadd074ede96c9d3a715a174326feeef57a6ef0e3a32af3a7e70c1426b3eb15
